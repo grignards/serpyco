@@ -1,11 +1,14 @@
 # cython: boundscheck=False
 # cython: language_level=3
 
+import datetime
 import enum
 import typing
+import uuid
 import warnings
 
 import cython
+import dateutil.parser
 import dataclasses
 import rapidjson
 
@@ -34,14 +37,6 @@ def is_optional(field_type) -> bool:
         field_type_name.startswith("typing.Union")
     ) and issubclass(field_type.__args__[1], type(None))
 
-  
-cdef inline _encode_builtin(value: JsonEncodable):
-    return value
-
-
-cdef inline _decode_builtin(value: JsonEncodable):
-    return value
-
 
 cdef class FieldEncoder(object):
     """Base class for encoding fields to and from JSON encodable values"""
@@ -56,18 +51,6 @@ cdef class FieldEncoder(object):
     def json_schema(self) -> JsonDict:
         raise NotImplementedError()
 
-@cython.final
-cdef class BuiltinFieldEncoder(FieldEncoder):
-
-    cpdef to_wire(self, value: typing.Any):
-        return value
-
-    cpdef to_python(self, value: typing.Any):
-        return value
-
-    @property
-    def json_schema(self) -> JsonDict:
-        raise NotImplementedError()
 
 @cython.final
 cdef class EnumFieldEncoder(FieldEncoder):
@@ -83,7 +66,8 @@ cdef class EnumFieldEncoder(FieldEncoder):
         return self._enum_type(value)
 
     def json_schema(self) -> JsonDict:
-        return self.serializer.json_schema()
+        return {}
+
 
 @cython.final
 cdef class DataClassFieldEncoder(FieldEncoder):
@@ -101,6 +85,7 @@ cdef class DataClassFieldEncoder(FieldEncoder):
     def json_schema(self) -> JsonDict:
         return self.serializer.json_schema()
 
+
 @cython.final
 cdef class ListFieldEncoder(FieldEncoder):
     cdef FieldEncoder _item_encoder
@@ -114,9 +99,6 @@ cdef class ListFieldEncoder(FieldEncoder):
     cpdef inline to_wire(self, value: typing.Any):
         return [self._item_encoder.to_wire(v) for v in value]
 
-    def json_schema(self) -> JsonDict:
-        # TODO: not good as it is
-        return self.serializer.json_schema()
 
 @cython.final
 cdef class DictFieldEncoder(FieldEncoder):
@@ -128,20 +110,78 @@ cdef class DictFieldEncoder(FieldEncoder):
         self._value_encoder = value_encoder
 
     cpdef inline to_python(self, value: JsonEncodable):
-        return {
-            self._key_encoder.to_python(k): self._value_encoder.to_python(v)
-            for k, v in value.items()
-        }
+        if self._key_encoder and self._value_encoder:
+            return {
+                self._key_encoder(k): self._value_encoder(v)
+                for k, v in value.items()
+            }
+        elif self._key_encoder and not self._value_encoder:
+            return {
+                self._key_encoder(k): v
+                for k, v in value.items()
+            }
+        elif not self._key_encoder and self._value_encoder:
+            return {
+                k: self._value_encoder(v)
+                for k, v in value.items()
+            }
+        else:
+            return value
 
     cpdef inline to_wire(self, value: typing.Any):
-        return {
-            self._key_encoder.to_wire(k): self._value_encoder.to_wire(v)
-            for k, v in value.items()
-        }
+        if self._key_encoder and self._value_encoder:
+            return {
+                self._key_encoder.to_wire(k): self._value_encoder.to_wire(v)
+                for k, v in value.items()
+            }
+        elif self._key_encoder and not self._value_encoder:
+            return {
+                self._key_encoder.to_wire(k): v
+                for k, v in value.items()
+            }
+        elif not self._key_encoder and self._value_encoder:
+            return {
+                k: self._value_encoder(v)
+                for k, v in value.items()
+            }
+        else:
+            return value
 
+
+@cython.final
+cdef class DateTimeFieldEncoder(FieldEncoder):
+    """Encodes datetimes to RFC3339 format"""
+
+    cpdef inline to_wire(self, value):
+        out = value.isoformat(timespec='seconds')
+
+        # Assume UTC if timezone is missing
+        if value.tzinfo is None:
+            return out + "Z"
+        return out
+
+    cpdef inline to_python(self, value):
+        if isinstance(value, datetime):
+            return value
+        else:
+            return dateutil.parser.parse(typing.cast(str, value))
+
+    @property
     def json_schema(self) -> JsonDict:
-        # TODO: not good as it is
-        return self.serializer.json_schema()
+        return {"type": "string", "format": "date-time"}
+
+@cython.final
+cdef class UuidFieldEncoder(FieldEncoder):
+
+    cpdef inline to_wire(self, value):
+        return str(value)
+
+    cpdef inline to_python(self, value):
+        return uuid.UUID(value)
+
+    @property
+    def json_schema(self):
+        return {'type': 'string', 'format': 'uuid'}
 
 
 @cython.final
@@ -151,6 +191,7 @@ cdef class Serializer(object):
     cdef object _data_class
     cdef dict _json_schema
     cdef object _validator
+    _field_encoders = {datetime: DateTimeFieldEncoder(), uuid.UUID: UuidFieldEncoder()}
 
     def __init__(self, data_class):
         self._data_class = data_class
@@ -167,6 +208,10 @@ cdef class Serializer(object):
     @classmethod
     def field_mapping(cls):
         return {}
+
+    @classmethod
+    def register_encoder(cls, field_type: typing.ClassVar, encoder: FieldEncoder):
+        cls._field_encoders[field_type] = encoder
 
     def json_schema(self):
         return self._json_schema
@@ -193,7 +238,8 @@ cdef class Serializer(object):
     cpdef inline object from_json(self, js: str, validate: bool=True):
         if validate:
             self._validator(js)
-        return self._from_dict(rapidjson.loads(js))
+        d = rapidjson.loads(js)
+        return self._from_dict(d)
 
     cdef inline dict _to_dict(self, obj: typing.Any, omit_none: bool):
         data = {}
@@ -204,23 +250,31 @@ cdef class Serializer(object):
                     continue
                 else:
                     encoded = None
-            else:
+            elif encoder:
                 encoded = encoder.to_wire(value)
+            else:
+                encoded = value
             data[encoded_name] = encoded
         return data
 
     cdef inline object _from_dict(self, data: typing.Any):
         decoded_data = {}
         for field_name, encoded_name, encoder in self._fields:
-            value = data.get(encoded_name)
-            decoded = encoder.to_python(value)
-            decoded_data[field_name] = decoded
+            encoded_value = data.get(encoded_name)
+            if encoder:
+                decoded_data[field_name] = encoder.to_python(encoded_value)
+            else:
+                decoded_data[field_name] = encoded_value
         return self._data_class(**decoded_data)
 
     @classmethod
     def _get_encoder(cls, field_type):
+        try:
+            return cls._field_encoders[field_type]
+        except:
+            pass
         if issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
-            return BuiltinFieldEncoder()
+            return None
         elif is_optional(field_type):
             return cls._get_encoder(field_type.__args__[0])
         elif issubclass_safe(field_type, enum.Enum):
@@ -230,11 +284,15 @@ cdef class Serializer(object):
             value_encoder = cls._get_encoder(field_type.__args__[1])
             return DictFieldEncoder(key_encoder, value_encoder)
         elif issubclass_safe(field_type, (typing.Sequence, typing.List)):
-            return ListFieldEncoder(cls._get_encoder(field_type.__args__[0]))
+            item_encoder = cls._get_encoder(field_type.__args__[0])
+            if item_encoder:
+                return ListFieldEncoder(item_encoder)
+            else:
+                return None
         elif dataclasses.is_dataclass(field_type):
             return DataClassFieldEncoder(field_type)
         else:
-            return BuiltinFieldEncoder()
+            return None
 
     @classmethod
     def _get_field_schema(cls, field_type: typing.Any) -> typing.Tuple[JsonDict, bool]:
@@ -273,10 +331,10 @@ cdef class Serializer(object):
                 field_schema = {'type': 'array'}
                 if field_type.__args__[0] is not typing.Any:
                     field_schema['items'] = cls._get_field_schema(field_type.__args__[0])[0]
-            # elif field_type in cls._field_encoders:
-            #     field_schema.update(cls._field_encoders[field_type].json_schema)
-            # elif hasattr(field_type, '__supertype__'):  # NewType fields
-            #     field_schema, _ = cls._get_field_schema(field_type.__supertype__)
+            elif field_type in cls._field_encoders:
+                field_schema.update(cls._field_encoders[field_type].json_schema)
+            elif hasattr(field_type, '__supertype__'):  # NewType fields
+                field_schema, _ = cls._get_field_schema(field_type.__supertype__)
             else:
                 warnings.warn(f"Unable to create schema for '{field_type}'")
         return field_schema, required
