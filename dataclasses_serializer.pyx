@@ -5,7 +5,6 @@ import datetime
 import enum
 import typing
 import uuid
-import warnings
 
 import cython
 import dateutil.parser
@@ -36,6 +35,10 @@ def is_optional(field_type) -> bool:
         field_type_name.startswith("Union") or
         field_type_name.startswith("typing.Union")
     ) and issubclass(field_type.__args__[1], type(None))
+
+class JsonSchemaError(Exception):
+    pass
+
 
 
 cdef class FieldEncoder(object):
@@ -184,6 +187,23 @@ cdef class UuidFieldEncoder(FieldEncoder):
         return {'type': 'string', 'format': 'uuid'}
 
 
+class FieldHints(object):
+    def __init__(self, dict_key: typing.Optional[str]) -> None:
+        self.dict_key = dict_key
+
+
+def field(dict_key: str=None, *args, **kwargs):
+    """
+    Convenience function to setup Serializer hints on dataclass fields.
+    Call it at field declaration as you would do with dataclass.field().
+    :param dict_key: key of the field in the output dictionaries.
+    """
+    metadata = kwargs.get("metadata", {})
+    metadata[__name__] = FieldHints(dict_key=dict_key)
+    kwargs["metadata"] = metadata
+    return dataclasses.field(*args, **kwargs)
+
+
 @cython.final
 cdef class Serializer(object):
 
@@ -201,13 +221,11 @@ cdef class Serializer(object):
             if f.name.startswith("_"):
                 continue
             field_type = type_hints[f.name]
-            self._fields.append((f.name, self.field_mapping().get(f.name, f.name), self._get_encoder(field_type)))
+            hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
+            self._fields.append((f.name, hints.dict_key, self._get_encoder(field_type)))
+        
         self._json_schema = self._create_json_schema(data_class, type_hints)
         self._validator = rapidjson.Validator(rapidjson.dumps(self._json_schema))
-
-    @classmethod
-    def field_mapping(cls):
-        return {}
 
     @classmethod
     def register_encoder(cls, field_type: typing.ClassVar, encoder: FieldEncoder):
@@ -243,7 +261,7 @@ cdef class Serializer(object):
 
     cdef inline dict _to_dict(self, obj: typing.Any, omit_none: bool):
         data = {}
-        for field_name, encoded_name, encoder in self._fields:
+        for field_name, dict_key, encoder in self._fields:
             value = getattr(obj, field_name)
             if value is None:
                 if omit_none:
@@ -254,13 +272,13 @@ cdef class Serializer(object):
                 encoded = encoder.to_wire(value)
             else:
                 encoded = value
-            data[encoded_name] = encoded
+            data[dict_key] = encoded
         return data
 
     cdef inline object _from_dict(self, data: typing.Any):
         decoded_data = {}
-        for field_name, encoded_name, encoder in self._fields:
-            encoded_value = data.get(encoded_name)
+        for field_name, dict_key, encoder in self._fields:
+            encoded_value = data.get(dict_key)
             if encoder:
                 decoded_data[field_name] = encoder.to_python(encoded_value)
             else:
@@ -336,11 +354,10 @@ cdef class Serializer(object):
             elif hasattr(field_type, '__supertype__'):  # NewType fields
                 field_schema, _ = cls._get_field_schema(field_type.__supertype__)
             else:
-                warnings.warn(f"Unable to create schema for '{field_type}'")
+                raise JsonSchemaError(f"Unable to create schema for '{field_type}'")
         return field_schema, required
 
-    @classmethod
-    def _create_json_schema(cls, data_class, type_hints, embeddable=False) -> dict:
+    def _create_json_schema(self, data_class, type_hints, embeddable=False) -> dict:
         """Returns the JSON schema for the dataclass, along with the schema of any nested dataclasses
         within the 'definitions' field.
 
@@ -351,12 +368,9 @@ cdef class Serializer(object):
 
         properties = {}
         required = []
-        for field, field_type in type_hints.items():
-            # Internal field
-            if field.startswith("_"):
-                continue
-            mapped_field = cls.field_mapping().get(field, field)
-            properties[mapped_field], is_required = cls._get_field_schema(field_type)
+        for field_name, dict_key, _ in self._fields:
+            field_type = type_hints[field_name]
+            properties[dict_key], is_required = self._get_field_schema(field_type)
             item_type = field_type
             if is_optional(field_type):
                 item_type = field_type.__args__[0]
@@ -373,7 +387,7 @@ cdef class Serializer(object):
                     definitions[item_type.__name__] = None
                     definitions.update(ser._create_json_schema(item_type, item_type_hints, embeddable=True))
             if is_required:
-                required.append(mapped_field)
+                required.append(dict_key)
         schema = {
             'type': 'object',
             'required': required,
