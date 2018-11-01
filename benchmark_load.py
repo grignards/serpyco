@@ -4,7 +4,7 @@ import typing
 
 import dataclasses
 
-import dataclasses_serializer
+import serpyco
 
 
 @dataslots.with_slots
@@ -26,7 +26,7 @@ class Test(object):
     option: typing.Optional[str] = None
 
 
-serializer = dataclasses_serializer.Serializer(Test)
+serializer = serpyco.Serializer(Test)
 
 t = Test(
     name="Foo", value=42, f=12.34, b=True, nest=[Nested(name="Bar")], many=[1, 2, 3]

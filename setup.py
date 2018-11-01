@@ -1,17 +1,21 @@
 from setuptools import setup
 from Cython.Build import cythonize
 
-requires = ["python-dateutil", "rapidjson", 'dataclasses;python_version<"3.7"']
-
+requires = [
+    "python-dateutil",
+    "rapidjson",
+    'dataclasses;python_version<"3.7"',
+    "cython",
+]
 
 setup(
-    name="dataclasses-serializer",
+    name="serpyco",
     description="Fast serialization of dataclasses",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
-    url="https://gitlab.com/sgrignard/dataclasses-serializer",
+    url="https://gitlab.com/sgrignard/serpyco",
     install_requires=requires,
-    tests_require=["pytest", "flake8", "mypy"],
+    tests_require=["pytest", "flake8"],
     license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -22,5 +26,5 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Software Development :: Libraries",
     ],
-    ext_modules=cythonize("dataclasses_serializer.pyx"),
+    ext_modules=cythonize("serpyco.pyx"),
 )

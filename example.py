@@ -2,7 +2,7 @@ from pprint import pprint
 
 from dataclasses import dataclass
 
-from dataclasses_serializer import Serializer
+from serpyco import Serializer
 
 
 @dataclass
