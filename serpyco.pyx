@@ -11,8 +11,10 @@ import dateutil.parser
 import dataclasses
 import rapidjson
 
+
 class BaseSerpycoError(Exception):
     pass
+
 
 class JsonSchemaError(BaseSerpycoError):
     pass
@@ -78,7 +80,20 @@ cdef class Serializer(object):
         uuid.UUID: UuidFieldEncoder()
     }
 
-    def __init__(self, data_class, many: bool=False, omit_none: bool=True):
+    def __init__(
+        self,
+        data_class: typing.ClassVar,
+        many: bool=False,
+        omit_none: bool=True
+    ):
+        """
+        Constructs a serializer for the given data class.
+        :param data_class data class this serializer will handle
+        :param many if True, serializer will handle lists of the data_class
+        :param omit_none if False, keep None values in the serialized dicts
+        """
+        if not dataclasses.is_dataclass(data_class):
+            raise BaseSerpycoError(f"{data_class} is not a dataclass")
         self._data_class = data_class
         self._many = many
         self._omit_none = omit_none
@@ -291,7 +306,7 @@ cdef class Serializer(object):
         required = []
         for field_name, dict_key, _ in self._fields:
             field_type = type_hints[field_name]
-            properties[dict_key], _ = self._get_field_schema(field_type)
+            properties[dict_key], is_required = self._get_field_schema(field_type)  # noqa: E501
             item_type = field_type
             if _is_optional(field_type):
                 item_type = field_type.__args__[0]

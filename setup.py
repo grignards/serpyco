@@ -10,7 +10,7 @@ requires = [
 
 setup(
     name="serpyco",
-    description="Fast serialization of dataclasses",
+    description="Fast serialization of dataclasses using Cython",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
     url="https://gitlab.com/sgrignard/serpyco",
