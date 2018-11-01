@@ -1,5 +1,5 @@
-Dataclasses Serializer
-======================
+# Dataclasses Serializer
+
 
 Fast serializer for Python 3.7 dataclasses. Python 3.6 is supported through the dataclasses backport.
 Also provides data validation through JSON Schema generation and rapidjson validator.
@@ -8,14 +8,13 @@ JSON schema generation code have been taken from [dataclasses-jsonschema](https:
 
 Serialization is optimized using Cython (but I'm a beginner regarding this, so MR are welcomed).
 
-Examples
---------
+## Examples
 
-.. code:: python
+```python
 
     from dataclasses import dataclass
 
-    from dataclasses_serializer import Serializer
+    from serpyco import Serializer
 
 
     @dataclass
@@ -25,9 +24,11 @@ Examples
 
 
     serializer = Serializer(Point)
-Generate the schema:
+```
 
-.. code:: python
+### Generate the schema
+
+```python
 
     >>> pprint(serializer.json_schema())
     {'$schema': 'http://json-schema.org/draft-04/schema#',
@@ -37,21 +38,20 @@ Generate the schema:
                     'y': {'format': 'float', 'type': 'number'}},
     'required': ['x', 'y'],
     'type': 'object'}
+```
 
+### Deserialise data
 
-Deserialise data:
-
-.. code:: python
+```python
 
     >>> serializer.from_dict({'x': 3.14, 'y': 1.5})
     Point(x=3.14, y=1.5)
     >>> serializer.from_dict({'x': 3.14, 'y': 'wrong'})
     ValidationError('type', '#/properties/y', '#/y')
+```
 
-TODO
-----
+## TODO
 
 * Improve optimization ?
 * Support type Union using 'oneOf'
 * Add the package to the benchmarked solutions of https://github.com/voidfiles/python-serialization-benchmark
-* Add tests
