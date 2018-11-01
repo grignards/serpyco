@@ -11,16 +11,18 @@ import dateutil.parser
 import dataclasses
 import rapidjson
 
+class BaseSerpycoError(Exception):
+    pass
 
-class JsonSchemaError(Exception):
+class JsonSchemaError(BaseSerpycoError):
     pass
 
 
-class NoEncoderError(Exception):
+class NoEncoderError(BaseSerpycoError):
     pass
 
 
-class ValidationError(Exception):
+class ValidationError(BaseSerpycoError):
     pass
 
 
