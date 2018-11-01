@@ -5,7 +5,7 @@ requires = [
     "python-dateutil",
     "rapidjson",
     'dataclasses;python_version<"3.7"',
-    "cython",
+    "Cython",
 ]
 
 setup(
