@@ -40,32 +40,32 @@ pprint.pprint(serializer.json_schema())
 t = Test(
     name="Foo", value=42, f=12.34, b=True, nest=[Nested(name="Bar")], many=[1, 2, 3]
 )
-print(serializer.to_dict(t, validate=True))
-print(serializer.from_dict(serializer.to_dict(t)))
-assert t == serializer.from_dict(serializer.to_dict(t))
+print(serializer.dump(t, validate=True))
+print(serializer.load(serializer.dump(t)))
+assert t == serializer.load(serializer.dump(t))
 number = 10000
-time = timeit.timeit("serializer.to_dict(t)", globals=globals(), number=number) / number
+time = timeit.timeit("serializer.dump(t)", globals=globals(), number=number) / number
 print("{0:.2f} us/statement".format(1e6 * time))
 
 t.nest = [Nested(name="Bar_{}".format(index)) for index in range(0, 1000)]
-d = serializer.to_dict(t, validate=True)
-js = serializer.to_json(t, validate=True)
+d = serializer.dump(t, validate=True)
+js = serializer.dump_json(t, validate=True)
 number = 10000
 time = (
     timeit.timeit(
-        "serializer.to_json(t, validate=False)", globals=globals(), number=number
+        "serializer.dump_json(t, validate=False)", globals=globals(), number=number
     )
     / number
 )
-print("serializer.to_json: {0:.2f} us/statement".format(1e6 * time))
+print("serializer.dump_json: {0:.2f} us/statement".format(1e6 * time))
 time = timeit.timeit("json.dumps(d)", globals=globals(), number=number) / number
 print("json.dumps: {0:.2f} us/statement".format(1e6 * time))
 time = (
     timeit.timeit(
-        "serializer.from_json(js, validate=False)", globals=globals(), number=number
+        "serializer.load_json(js, validate=False)", globals=globals(), number=number
     )
     / number
 )
-print("serializer.from_json: {0:.2f} us/statement".format(1e6 * time))
+print("serializer.load_json: {0:.2f} us/statement".format(1e6 * time))
 time = timeit.timeit("json.loads(js)", globals=globals(), number=number) / number
 print("json.loads: {0:.2f} us/statement".format(1e6 * time))

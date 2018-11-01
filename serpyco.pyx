@@ -1,5 +1,6 @@
 # cython: boundscheck=False
 # cython: language_level=3
+# cython: profile=True
 
 import datetime
 import enum
@@ -31,13 +32,13 @@ class ValidationError(BaseSerpycoError):
 cdef class FieldEncoder(object):
     """Base class for encoding fields to and from JSON encodable values"""
 
-    cpdef to_wire(self, value: typing.Any):
+    cpdef dump(self, value: typing.Any):
         """
         Convert the given value to a JSON encodable value
         """
         raise NotImplementedError()
 
-    cpdef to_python(self, value: typing.Any):
+    cpdef load(self, value: typing.Any):
         """
         Convert the given JSON value to its python counterpart
         """
@@ -63,6 +64,214 @@ def field(dict_key: str=None, *args, **kwargs):
     return dataclasses.field(*args, **kwargs)
 
 
+JsonDict = typing.Dict[str, typing.Any]
+
+
+class Validator(object):
+    """
+    Validates a dict/json string against a dataclass definition.
+    """
+
+    _custom_schemas: JsonDict = {}
+
+    def __init__(self, data_class: typing.ClassVar, many:bool=False) -> None:
+        self._data_class = data_class
+        self._json_schema: typing.Optional[str] = None
+        self._many = many
+        self._validator: typing.Optional[rapidjson.Validator] = None
+        self._fields = [
+            (f.name, f.metadata.get(__name__, FieldHints(dict_key=f.name)))
+            for f in dataclasses.fields(data_class)
+        ]
+
+    def validate(self, data: typing.Union[dict, list]) -> None:
+        self.validate_json(rapidjson.dumps(data))
+
+    def validate_json(self, json_string: str) -> None:
+        if not self._validator:
+            self._validator = rapidjson.Validator(rapidjson.dumps(self.json_schema()))
+        try:
+            self._validator(json_string)
+        except rapidjson.ValidationError as exc:
+            raise ValidationError(str(exc))
+
+    def json_schema(self) -> JsonDict:
+        if not self._json_schema:
+            self._json_schema = self._create_json_schema()
+        return self._json_schema
+
+    @classmethod
+    def register_custom_schema(
+        cls,
+        type_: typing.ClassVar,
+        schema: JsonDict
+    ) -> None:
+        cls._custom_schemas[type_] = schema
+
+    def _create_json_schema(
+        self,
+        embeddable=False,
+        parent_validators: typing.List["Validator"]=None,
+    ) -> dict:
+        """Returns the JSON schema for the dataclass, along with the schema
+        of any nested dataclasses within the "definitions" field.
+
+        Enable the embeddable flag to generate the schema in a format
+        for embedding into other schemas or documents supporting
+        JSON schema such as Swagger specs,
+        """
+        parent_validators = parent_validators or []
+        parent_validators.append(self)
+
+        definitions: JsonDict = {}  # noqa: E704
+        type_hints = typing.get_type_hints(self._data_class)
+
+        properties = {}
+        required = []
+        for field_name, hints in self._fields:
+            field_type = type_hints[field_name]
+            properties[hints.dict_key], is_required = self._get_field_schema(
+                field_type,
+                parent_validators
+            )
+
+            # Update definitions to objects
+            item_type = field_type
+            if _is_optional(field_type):
+                item_type = field_type.__args__[0]
+            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
+                item_type = field_type.__args__[1]
+            elif (_issubclass_safe(field_type, (typing.Sequence, typing.List)) and not  # noqa: E501
+                  _issubclass_safe(field_type, str)):
+                item_type = field_type.__args__[0]
+
+            # Prevent recursion from forward refs & circular type dependencies
+            if (
+                dataclasses.is_dataclass(item_type) and
+                item_type.__name__ not in definitions
+            ):
+                for validator in parent_validators:
+                    if validator._data_class == item_type:
+                        break
+                else:
+                    sub = Validator(item_type)
+                    item_schema = sub._create_json_schema(
+                        embeddable=True,
+                        parent_validators=parent_validators
+                    )
+                    definitions[item_type.__name__] = None
+                    definitions.update(item_schema)
+            if is_required:
+                required.append(hints.dict_key)
+        schema = {
+            "type": "object",
+            "properties": properties
+        }
+        if required:
+            schema["required"] = required
+        if self._data_class.__doc__:
+            schema["description"] = self._data_class.__doc__.strip()
+
+        if embeddable:
+            schema = {**definitions, self._data_class.__name__: schema}
+        elif not self._many:
+            schema = {**schema, **{
+                "definitions": definitions,
+                "$schema": "http://json-schema.org/draft-04/schema#"
+            }}
+        else:
+            schema = {
+                "definitions": definitions,
+                "$schema": "http://json-schema.org/draft-04/schema#",
+                "type": "array",
+                "items": schema,
+            }
+
+        return schema
+
+    def _get_field_schema(
+        self,
+        field_type: typing.Any,
+        parent_validators: typing.List["Validator"]
+    ) -> typing.Tuple[JsonDict, bool]:
+        field_schema: JsonDict = {"type": "object"}
+        required = True
+        field_type_name = self._get_field_type_name(field_type)
+        if dataclasses.is_dataclass(field_type):
+            if field_type == parent_validators[0]._data_class:
+                ref = "#"
+            else:
+                ref = "#/definitions/{}".format(field_type_name)
+            field_schema = {
+                "type": "object",
+                "$ref": ref
+            }
+        else:
+            if _is_optional(field_type):
+                field_schema = self._get_field_schema(
+                    field_type.__args__[0],
+                    parent_validators
+                )[0]
+                required = False
+            elif _issubclass_safe(field_type, enum.Enum):
+                member_types = set()
+                values = []
+                for member in field_type:
+                    member_types.add(type(member.value))
+                    values.append(member.value)
+                if len(member_types) == 1:
+                    member_type = member_types.pop()
+                    if member_type in JSON_ENCODABLE_TYPES:
+                        field_schema.update(JSON_ENCODABLE_TYPES[member_type])
+                    elif member_type in self._custom_schemas:
+                        field_schema.update(
+                            self._custom_schemas[member_types.pop()]
+                        )
+                field_schema["enum"] = values
+                if field_type.__doc__:
+                    field_schema["description"] = field_type.__doc__.strip()
+            elif field_type in JSON_ENCODABLE_TYPES:
+                field_schema = JSON_ENCODABLE_TYPES[field_type]
+            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
+                field_schema = {"type": "object"}
+                if field_type.__args__[1] is not typing.Any:
+                    add = self._get_field_schema(
+                        field_type.__args__[1],
+                        parent_validators
+                    )[0]
+                    field_schema["additionalProperties"] = add
+            elif _issubclass_safe(field_type, (typing.Sequence, typing.List)):
+                field_schema = {"type": "array"}
+                if field_type.__args__[0] is not typing.Any:
+                    items = self._get_field_schema(
+                        field_type.__args__[0],
+                        parent_validators
+                    )[0]
+                    field_schema["items"] = items
+            elif field_type in self._custom_schemas:
+                field_schema.update(self._custom_schemas[field_type])
+            elif hasattr(field_type, "__supertype__"):  # NewType fields
+                field_schema, _ = self._get_field_schema(
+                    field_type.__supertype__,
+                    parent_validators
+                )
+            else:
+                msg = f"Unable to create schema for '{field_type}'"
+                raise JsonSchemaError(msg)
+        return field_schema, required
+
+    
+    @staticmethod
+    def _get_field_type_name(field_type: typing.Any) -> typing.Optional[str]:
+        try:
+            return field_type.__name__
+        except AttributeError:
+            try:
+                return field_type._name
+            except AttributeError:
+                return None
+
+
 @cython.final
 cdef class Serializer(object):
     """
@@ -73,13 +282,14 @@ cdef class Serializer(object):
     cdef object _data_class
     cdef bint _many
     cdef bint _omit_none
-    cdef dict _json_schema
     cdef object _validator
     cdef list _parent_serializers
     _field_encoders = {
         datetime.datetime: DateTimeFieldEncoder(),
         uuid.UUID: UuidFieldEncoder()
     }
+    for f, e in _field_encoders.items():
+        Validator.register_custom_schema(f, e.json_schema)
 
     def __init__(
         self,
@@ -103,14 +313,17 @@ cdef class Serializer(object):
         self._parent_serializers.append(self)
         type_hints = typing.get_type_hints(data_class)
         self._fields = []
+
         for f in dataclasses.fields(data_class):
             field_type = type_hints[f.name]
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
-            self._fields.append((
-                f.name,
-                hints.dict_key,
-                self._get_encoder(field_type)
-            ))
+            encoder = self._get_encoder(field_type)
+            self._fields.append((f.name, hints.dict_key, encoder))
+
+        self._validator = Validator(data_class, many=many)
+
+    def json_schema(self) -> JsonDict:
+        return self._validator.json_schema()
 
     @classmethod
     def register_encoder(
@@ -119,72 +332,65 @@ cdef class Serializer(object):
         encoder: FieldEncoder
     ) -> None:
         cls._field_encoders[field_type] = encoder
-
-    def json_schema(self) -> JsonDict:
-        if not self._json_schema:
-            type_hints = typing.get_type_hints(self._data_class)
-            schema = self._create_json_schema(self._data_class, type_hints)
-            self._validator = rapidjson.Validator(rapidjson.dumps(schema))
-            self._json_schema = schema
-        return self._json_schema
+        Validator.register_custom_schema(field_type, encoder.json_schema)
 
     @property
     def data_class(self) -> typing.ClassVar:
         return self._data_class
 
-    cpdef inline to_dict(
+    cpdef inline dump(
         self,
         obj: typing.Union[object, typing.Iterable],
         validate: bool=False
     ):
         if self._many:
-            data = [self._to_dict(o) for o in obj]
+            data = [self._dump(o) for o in obj]
         else:
-            data = self._to_dict(obj)
+            data = self._dump(obj)
         if validate:
-            self._validate(rapidjson.dumps(data))
+            self._validator.validate(data)
         return data
 
-    cpdef inline from_dict(
+    cpdef inline load(
         self,
         data: typing.Union[dict, typing.Iterable],
         validate: bool=True
     ):
         if validate:
-            self._validate(rapidjson.dumps(data))
+            self._validator.validate(data)
 
         if self._many:
-            return [self._from_dict(d) for d in data]
-        return self._from_dict(data)
+            return [self._load(d) for d in data]
+        return self._load(data)
 
-    cpdef inline str to_json(
+    cpdef inline str dump_json(
         self,
         obj: typing.Union[object, typing.Iterable],
         validate: bool=False
     ):
         if self._many:
-            data = [self._to_dict(o) for o in obj]
+            data = [self._dump(o) for o in obj]
         else:
-            data = self._to_dict(obj)
+            data = self._dump(obj)
 
         js = rapidjson.dumps(data)
         if validate:
-            self._validate(js)
+            self._validator.validate_json(js)
 
         return js
 
-    cpdef inline object from_json(self, js: str, validate: bool=True):
+    cpdef inline object load_json(self, js: str, validate: bool=True):
         """
         Constructs
         """
         if validate:
-            self._validate(js)
+            self._validator.validate_json(js)
         data = rapidjson.loads(js)
         if self._many:
-            return [self._from_dict(value) for value in data]
-        return self._from_dict(data)
+            return [self._load(value) for value in data]
+        return self._load(data)
 
-    cdef inline dict _to_dict(self, obj: typing.Any):
+    cdef inline dict _dump(self, obj: typing.Any):
         data = {}
         for field_name, dict_key, encoder in self._fields:
             value = getattr(obj, field_name)
@@ -194,18 +400,18 @@ cdef class Serializer(object):
                 else:
                     encoded = None
             elif encoder:
-                encoded = encoder.to_wire(value)
+                encoded = encoder.dump(value)
             else:
                 encoded = value
             data[dict_key] = encoded
         return data
 
-    cdef inline object _from_dict(self, data: typing.Any):
+    cdef inline object _load(self, data: typing.Any):
         decoded_data = {}
         for field_name, dict_key, encoder in self._fields:
             encoded_value = data.get(dict_key)
             if encoder:
-                decoded_data[field_name] = encoder.to_python(encoded_value)
+                decoded_data[field_name] = encoder.load(encoded_value)
             else:
                 decoded_data[field_name] = encoded_value
         return self._data_class(**decoded_data)
@@ -244,166 +450,11 @@ cdef class Serializer(object):
                 serializer = Serializer(
                     field_type,
                     omit_none=self._omit_none,
-                    _parent_serializers=self._parent_serializers.copy()
+                    _parent_serializers=self._parent_serializers
                 )
             return DataClassFieldEncoder(serializer)
         raise NoEncoderError(f"No encoder for '{field_type}'")
 
-    def _get_field_schema(
-        self,
-        field_type: typing.Any
-    ) -> typing.Tuple[JsonDict, bool]:
-        field_schema: JsonDict = {"type": "object"}
-        required = True
-        field_type_name = self._get_field_type_name(field_type)
-        if dataclasses.is_dataclass(field_type):
-            if field_type == self._parent_serializers[0].data_class:
-                ref = "#"
-            else:
-                ref = "#/definitions/{}".format(field_type_name)
-            field_schema = {
-                "type": "object",
-                "$ref": ref
-            }
-        else:
-            if _is_optional(field_type):
-                field_schema = self._get_field_schema(field_type.__args__[0])[0]
-                required = False
-            elif _issubclass_safe(field_type, enum.Enum):
-                member_types = set()
-                values = []
-                for member in field_type:
-                    member_types.add(type(member.value))
-                    values.append(member.value)
-                if len(member_types) == 1:
-                    member_type = member_types.pop()
-                    if member_type in JSON_ENCODABLE_TYPES:
-                        field_schema.update(JSON_ENCODABLE_TYPES[member_type])
-                    elif member_type in self._field_encoders:
-                        field_schema.update(
-                            self._field_encoders[member_types.pop()].json_schema
-                        )
-                field_schema["enum"] = values
-                if field_type.__doc__:
-                    field_schema["description"] = field_type.__doc__.strip()
-            elif field_type in JSON_ENCODABLE_TYPES:
-                field_schema = JSON_ENCODABLE_TYPES[field_type]
-            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
-                field_schema = {"type": "object"}
-                if field_type.__args__[1] is not typing.Any:
-                    add = self._get_field_schema(field_type.__args__[1])[0]
-                    field_schema["additionalProperties"] = add
-            elif _issubclass_safe(field_type, (typing.Sequence, typing.List)):
-                field_schema = {"type": "array"}
-                if field_type.__args__[0] is not typing.Any:
-                    items = self._get_field_schema(field_type.__args__[0])[0]
-                    field_schema["items"] = items
-            elif field_type in self._field_encoders:
-                field_schema.update(
-                    self._field_encoders[field_type].json_schema
-                )
-            elif hasattr(field_type, "__supertype__"):  # NewType fields
-                field_schema, _ = self._get_field_schema(field_type.__supertype__)  # noqa:E501
-            else:
-                msg = f"Unable to create schema for '{field_type}'"
-                raise JsonSchemaError(msg)
-        return field_schema, required
-
-    def _create_json_schema(
-        self,
-        data_class: typing.ClassVar,
-        type_hints: dict,
-        embeddable=False,
-        definitions: JsonDict=None
-    ) -> dict:
-        """Returns the JSON schema for the dataclass, along with the schema
-        of any nested dataclasses within the "definitions" field.
-
-        Enable the embeddable flag to generate the schema in a format
-        for embedding into other schemas or documents supporting
-        JSON schema such as Swagger specs,
-        """
-        definitions: JsonDict = definitions or {}  # noqa: E704
-
-        properties = {}
-        required = []
-        for field_name, dict_key, _ in self._fields:
-            field_type = type_hints[field_name]
-            properties[dict_key], is_required = self._get_field_schema(field_type)  # noqa: E501
-
-            # Update definitions to objects
-            item_type = field_type
-            if _is_optional(field_type):
-                item_type = field_type.__args__[0]
-            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
-                item_type = field_type.__args__[1]
-            elif (_issubclass_safe(field_type, (typing.Sequence, typing.List)) and not  # noqa: E501
-                  _issubclass_safe(field_type, str)):
-                item_type = field_type.__args__[0]
-
-            # Prevent recursion from forward refs & circular type dependencies
-            if (
-                dataclasses.is_dataclass(item_type) and
-                item_type.__name__ not in definitions
-            ):
-                for serializer in self._parent_serializers:
-                    if serializer.data_class == item_type:
-                        break
-                else:
-                    item_schema = Serializer(
-                        item_type,
-                        _parent_serializers=self._parent_serializers.copy()
-                    )._create_json_schema(
-                        item_type,
-                        typing.get_type_hints(item_type),
-                        embeddable=True,
-                    )
-                    definitions[item_type.__name__] = None
-                    definitions.update(item_schema)
-            if is_required:
-                required.append(dict_key)
-        schema = {
-            "type": "object",
-            "properties": properties
-        }
-        if required:
-            schema["required"] = required
-        if data_class.__doc__:
-            schema["description"] = data_class.__doc__.strip()
-
-        if embeddable:
-            schema = {**definitions, data_class.__name__: schema}
-        elif not self._many:
-            schema = {**schema, **{
-                "definitions": definitions,
-                "$schema": "http://json-schema.org/draft-04/schema#"
-            }}
-        else:
-            schema = {
-                "definitions": definitions,
-                "$schema": "http://json-schema.org/draft-04/schema#",
-                "type": "array",
-                "items": schema,
-            }
-
-        return schema
-
-    @staticmethod
-    def _get_field_type_name(field_type: typing.Any) -> typing.Optional[str]:
-        try:
-            return field_type.__name__
-        except AttributeError:
-            try:
-                return field_type._name
-            except AttributeError:
-                return None
-
-    def _validate(self, json_string: str) -> None:
-        self.json_schema()
-        try:
-            self._validator(json_string)
-        except rapidjson.ValidationError as exc:
-            raise ValidationError(str(exc))
 
 JSON_ENCODABLE_TYPES = {
     str: {"type": "string"},
@@ -412,8 +463,8 @@ JSON_ENCODABLE_TYPES = {
     float: {"type": "number", "format": "float"}
 }
 
+
 JsonEncodable = typing.Union[int, float, str, bool]
-JsonDict = typing.Dict[str, typing.Any]
 
 
 def _issubclass_safe(field_type, classes) -> bool:
@@ -438,10 +489,10 @@ cdef class EnumFieldEncoder(FieldEncoder):
     def __init__(self, enum_type):
         self._enum_type = enum_type
 
-    cpdef inline to_wire(self, value: typing.Any):
+    cpdef inline dump(self, value: typing.Any):
         return value.value
 
-    cpdef inline to_python(self, value: typing.Any):
+    cpdef inline load(self, value: typing.Any):
         return self._enum_type(value)
 
     def json_schema(self) -> JsonDict:
@@ -455,11 +506,11 @@ cdef class DataClassFieldEncoder(FieldEncoder):
     def __init__(self, serializer: Serializer):
         self._serializer = serializer
 
-    cpdef inline to_python(self, value: typing.Any):
-        return self._serializer._from_dict(value)
+    cpdef inline load(self, value: typing.Any):
+        return self._serializer._load(value)
 
-    cpdef inline to_wire(self, value: typing.Any):
-        return self._serializer._to_dict(value)
+    cpdef inline dump(self, value: typing.Any):
+        return self._serializer._dump(value)
 
     def json_schema(self) -> JsonDict:
         return self.serializer.json_schema()
@@ -477,11 +528,11 @@ cdef class ListFieldEncoder(FieldEncoder):
         else:
             self._sequence_type = sequence_type
 
-    cpdef inline to_python(self, value: typing.Any):
-        return self._sequence_type(map(self._item_encoder.to_python, value))
+    cpdef inline load(self, value: typing.Any):
+        return self._sequence_type(map(self._item_encoder.load, value))
 
-    cpdef inline to_wire(self, value: typing.Any):
-        return self._sequence_type(map(self._item_encoder.to_wire, value))
+    cpdef inline dump(self, value: typing.Any):
+        return self._sequence_type(map(self._item_encoder.dump, value))
 
 
 @cython.final
@@ -493,7 +544,7 @@ cdef class DictFieldEncoder(FieldEncoder):
         self._key_encoder = key_encoder
         self._value_encoder = value_encoder
 
-    cpdef inline to_python(self, value: JsonEncodable):
+    cpdef inline load(self, value: JsonEncodable):
         if self._key_encoder and self._value_encoder:
             return {
                 self._key_encoder(k): self._value_encoder(v)
@@ -512,15 +563,15 @@ cdef class DictFieldEncoder(FieldEncoder):
         else:
             return value
 
-    cpdef inline to_wire(self, value: typing.Any):
+    cpdef inline dump(self, value: typing.Any):
         if self._key_encoder and self._value_encoder:
             return {
-                self._key_encoder.to_wire(k): self._value_encoder.to_wire(v)
+                self._key_encoder.dump(k): self._value_encoder.dump(v)
                 for k, v in value.items()
             }
         elif self._key_encoder and not self._value_encoder:
             return {
-                self._key_encoder.to_wire(k): v
+                self._key_encoder.dump(k): v
                 for k, v in value.items()
             }
         elif not self._key_encoder and self._value_encoder:
@@ -536,7 +587,7 @@ cdef class DictFieldEncoder(FieldEncoder):
 cdef class DateTimeFieldEncoder(FieldEncoder):
     """Encodes datetimes to RFC3339 format"""
 
-    cpdef inline to_wire(self, value):
+    cpdef inline dump(self, value):
         out = value.isoformat()
 
         # Assume UTC if timezone is missing
@@ -544,7 +595,7 @@ cdef class DateTimeFieldEncoder(FieldEncoder):
             return out + "+00:00"
         return out
 
-    cpdef inline to_python(self, value):
+    cpdef inline load(self, value):
         if isinstance(value, datetime.datetime):
             return value
         else:
@@ -558,10 +609,10 @@ cdef class DateTimeFieldEncoder(FieldEncoder):
 @cython.final
 cdef class UuidFieldEncoder(FieldEncoder):
 
-    cpdef inline to_wire(self, value):
+    cpdef inline dump(self, value):
         return str(value)
 
-    cpdef inline to_python(self, value):
+    cpdef inline load(self, value):
         return uuid.UUID(value)
 
     @property

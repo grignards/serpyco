@@ -32,11 +32,11 @@ t = Test(
     name="Foo", value=42, f=12.34, b=True, nest=[Nested(name="Bar")], many=[1, 2, 3]
 )
 t.nest = [Nested(name="Bar_{}".format(index)) for index in range(0, 1000)]
-js = serializer.to_json(t, validate=True)
+js = serializer.dump_json(t, validate=True)
 number = 10000
 time = (
     timeit.timeit(
-        "serializer.from_json(js, validate=True)", globals=globals(), number=number
+        "serializer.load_json(js, validate=True)", globals=globals(), number=number
     )
     / number
 )

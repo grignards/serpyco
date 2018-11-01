@@ -44,9 +44,9 @@ Serialization is optimized using Cython (but I'm a beginner regarding this, so M
 
 ```python
 
-    >>> serializer.from_dict({'x': 3.14, 'y': 1.5})
+    >>> serializer.load({'x': 3.14, 'y': 1.5})
     Point(x=3.14, y=1.5)
-    >>> serializer.from_dict({'x': 3.14, 'y': 'wrong'})
+    >>> serializer.load({'x': 3.14, 'y': 'wrong'})
     ValidationError('type', '#/properties/y', '#/y')
 ```
 

@@ -75,7 +75,7 @@ def types_object() -> Types:
     )
 
 
-def test_unit__to_dict__ok__nominal_case(types_object: Types) -> None:
+def test_unit__dump__ok__nominal_case(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types)
     assert {
         "integer": 42,
@@ -88,26 +88,26 @@ def test_unit__to_dict__ok__nominal_case(types_object: Types) -> None:
         "nesteds": [{"name": "hello"}, {"name": "world"}],
         "mapping": {"foo": "bar"},
         "datetime_": "2018-11-01T14:23:43.123456+00:00",
-    } == serializer.to_dict(types_object)
+    } == serializer.dump(types_object)
 
 
-def test_unit__to_dict__ok__with_none(types_object: Types) -> None:
+def test_unit__dump__ok__with_none(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types, omit_none=False)
-    data = serializer.to_dict(types_object)
+    data = serializer.dump(types_object)
     assert "optional" in data
     assert None is data["optional"]
 
 
-def test_unit__to_json__ok__nominal_case(types_object: Types) -> None:
+def test_unit__dump_json__ok__nominal_case(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types)
 
-    data = serializer.to_dict(types_object)
-    assert json.dumps(data, separators=(",", ":")) == serializer.to_json(types_object)
+    data = serializer.dump(types_object)
+    assert json.dumps(data, separators=(",", ":")) == serializer.dump_json(types_object)
 
 
-def test_unit__from_dict__ok__nominal_case(types_object: Types) -> None:
+def test_unit__load__ok__nominal_case(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types)
-    assert types_object == serializer.from_dict(
+    assert types_object == serializer.load(
         {
             "integer": 42,
             "string": "foo",
@@ -123,9 +123,9 @@ def test_unit__from_dict__ok__nominal_case(types_object: Types) -> None:
     )
 
 
-def test_unit__from_json__ok__nominal_case(types_object: Types) -> None:
+def test_unit__load_json__ok__nominal_case(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types)
-    assert types_object == serializer.from_json(
+    assert types_object == serializer.load_json(
         json.dumps(
             {
                 "integer": 42,
@@ -143,20 +143,20 @@ def test_unit__from_json__ok__nominal_case(types_object: Types) -> None:
     )
 
 
-def test_unit__from_to_dict__ok__with_many(types_object: Types) -> None:
+def test_unit__from_dump__ok__with_many(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types, many=True)
 
-    data = serializer.to_dict([types_object, types_object])
+    data = serializer.dump([types_object, types_object])
 
-    assert [types_object, types_object] == serializer.from_dict(data)
+    assert [types_object, types_object] == serializer.load(data)
 
 
-def test_unit__from_to_json__ok__with_many(types_object: Types) -> None:
+def test_unit__from_dump_json__ok__with_many(types_object: Types) -> None:
     serializer = serpyco.Serializer(Types, many=True)
 
-    data = serializer.to_json([types_object, types_object])
+    data = serializer.dump_json([types_object, types_object])
 
-    assert [types_object, types_object] == serializer.from_json(data)
+    assert [types_object, types_object] == serializer.load_json(data)
 
 
 def test_unit__json_schema__ok__nominal_case() -> None:
@@ -284,25 +284,25 @@ def test_unit__json_schema__ok__cycle() -> None:
     } == ser.json_schema()
 
 
-def test_unit__to_dict_json__ok__validate() -> None:
+def test_unit__dump_json__ok__validate() -> None:
     serializer = serpyco.Serializer(Simple)
 
-    assert serializer.to_dict(Simple(name="foo"), validate=True)
-    assert serializer.to_json(Simple(name="foo"), validate=True)
+    assert serializer.dump(Simple(name="foo"), validate=True)
+    assert serializer.dump_json(Simple(name="foo"), validate=True)
 
     with pytest.raises(serpyco.ValidationError):
-        serializer.to_dict(Simple(name=42), validate=True)
+        serializer.dump(Simple(name=42), validate=True)
     with pytest.raises(serpyco.ValidationError):
-        serializer.to_json(Simple(name=42), validate=True)
+        serializer.dump_json(Simple(name=42), validate=True)
 
 
-def test_unit__from_dict_json__ok__validate() -> None:
+def test_unit__load_json__ok__validate() -> None:
     serializer = serpyco.Serializer(Simple)
 
-    assert serializer.from_dict({"name": "foo"}, validate=True)
-    assert serializer.from_json('{"name": "foo"}', validate=True)
+    assert serializer.load({"name": "foo"}, validate=True)
+    assert serializer.load_json('{"name": "foo"}', validate=True)
 
     with pytest.raises(serpyco.ValidationError):
-        serializer.from_dict({"name": 42}, validate=True)
+        serializer.load({"name": 42}, validate=True)
     with pytest.raises(serpyco.ValidationError):
-        serializer.from_json('{"name": 42}', validate=True)
+        serializer.load_json('{"name": 42}', validate=True)

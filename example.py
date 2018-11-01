@@ -14,8 +14,8 @@ class Point(object):
 serializer = Serializer(Point)
 
 pprint(serializer.json_schema())
-pprint(serializer.from_dict({"x": 3.14, "y": 1.5}))
+pprint(serializer.load({"x": 3.14, "y": 1.5}))
 try:
-    serializer.from_dict({"x": 3.14, "y": "wrong"})
+    serializer.load({"x": 3.14, "y": "wrong"})
 except Exception as ex:
     pprint(ex)
