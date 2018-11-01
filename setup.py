@@ -1,12 +1,12 @@
 from setuptools import setup
-from Cython.Build import cythonize
 
-requires = [
-    "python-dateutil",
-    "rapidjson",
-    'dataclasses;python_version<"3.7"',
-    "Cython",
-]
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    print("You need Cython to build this package")
+    raise
+
+requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
 
 setup(
     name="serpyco",
@@ -27,4 +27,5 @@ setup(
         "Topic :: Software Development :: Libraries",
     ],
     ext_modules=cythonize("serpyco.pyx"),
+    zip_safe=False,
 )
