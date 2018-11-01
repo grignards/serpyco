@@ -47,6 +47,16 @@ class Types(object):
     optional: typing.Optional[int] = None
 
 
+@dataclasses.dataclass
+class First(object):
+    second: "Second"
+
+
+@dataclasses.dataclass
+class Second(object):
+    first: First
+
+
 @pytest.fixture
 def types_object() -> Types:
     return Types(
@@ -253,6 +263,25 @@ def test_unit__json_schema__ok__with_many() -> None:
         },
         "type": "array",
     } == serializer.json_schema()
+
+
+def test_unit__json_schema__ok__cycle() -> None:
+    ser = serpyco.Serializer(First)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "Second": {
+                "description": "Second(first:test.First)",
+                "properties": {"first": {"$ref": "#", "type": "object"}},
+                "required": ["first"],
+                "type": "object",
+            }
+        },
+        "description": "First(second:'Second')",
+        "properties": {"second": {"$ref": "#/definitions/Second", "type": "object"}},
+        "required": ["second"],
+        "type": "object",
+    } == ser.json_schema()
 
 
 def test_unit__to_dict_json__ok__validate() -> None:
