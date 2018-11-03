@@ -1,10 +1,9 @@
 # Dataclasses Serializer
 
-
 Fast serializer for Python 3.7 dataclasses. Python 3.6 is supported through the dataclasses backport.
 Also provides data validation through JSON Schema generation and rapidjson validator.
 
-JSON schema generation code have been taken from [dataclasses-jsonschema](https://github.com/s-knibbs/dataclasses-jsonschema).
+JSON schema generation code has been taken from [dataclasses-jsonschema](https://github.com/s-knibbs/dataclasses-jsonschema).
 
 Serialization is optimized using Cython (but I'm a beginner regarding this, so MR are welcomed).
 
@@ -52,6 +51,7 @@ Serialization is optimized using Cython (but I'm a beginner regarding this, so M
 
 ## TODO
 
-* Improve optimization ?
-* Support type Union using 'oneOf'
-* Add the package to the benchmarked solutions of https://github.com/voidfiles/python-serialization-benchmark
+- improve optimization ?
+- add the package to the benchmarked solutions of https://github.com/voidfiles/python-serialization-benchmark
+- method/function fields ??
+- improve validation error messages
