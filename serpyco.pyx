@@ -74,7 +74,7 @@ class Validator(object):
 
     _custom_schemas: JsonDict = {}
 
-    def __init__(self, data_class: typing.ClassVar, many:bool=False) -> None:
+    def __init__(self, data_class: typing.ClassVar, many: bool=False) -> None:
         self._data_class = data_class
         self._json_schema: typing.Optional[str] = None
         self._many = many
@@ -89,7 +89,8 @@ class Validator(object):
 
     def validate_json(self, json_string: str) -> None:
         if not self._validator:
-            self._validator = rapidjson.Validator(rapidjson.dumps(self.json_schema()))
+            js = rapidjson.dumps(self.json_schema())
+            self._validator = rapidjson.Validator(js)
         try:
             self._validator(json_string)
         except rapidjson.ValidationError as exc:
@@ -147,9 +148,9 @@ class Validator(object):
                   _issubclass_safe(field_type, str)):
                 item_types = [field_type.__args__[0]]
 
-
             for item_type in item_types:
-                # Prevent recursion from forward refs & circular type dependencies
+                # Prevent recursion from forward refs &
+                # circular type dependencies
                 if (
                     dataclasses.is_dataclass(item_type) and
                     item_type.__name__ not in definitions
@@ -271,7 +272,6 @@ class Validator(object):
                 raise JsonSchemaError(msg)
         return field_schema, required
 
-    
     @staticmethod
     def _get_field_type_name(field_type: typing.Any) -> typing.Optional[str]:
         try:
@@ -645,12 +645,16 @@ cdef class UuidFieldEncoder(FieldEncoder):
     def json_schema(self):
         return {"type": "string", "format": "uuid"}
 
+
 @cython.final
 cdef class UnionFieldEncoder(FieldEncoder):
 
     cdef list _type_encoders
 
-    def __init__(self, type_encoders: typing.List[typing.Tuple[typing.ClassVar, FieldEncoder]]):
+    def __init__(
+        self,
+        type_encoders: typing.List[typing.Tuple[typing.ClassVar, FieldEncoder]]
+    ):
         self._type_encoders = type_encoders
 
     cpdef inline dump(self, value):
