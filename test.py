@@ -306,3 +306,30 @@ def test_unit__load_json__ok__validate() -> None:
         serializer.load({"name": 42}, validate=True)
     with pytest.raises(serpyco.ValidationError):
         serializer.load_json('{"name": 42}', validate=True)
+
+
+def test_unit__union__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithUnion(object):
+        foo: typing.Union[str, int]
+
+    serializer = serpyco.Serializer(WithUnion)
+
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "WithUnion(foo:Union[str, int])",
+        "properties": {
+            "foo": {
+                "oneOf": [{"type": "string"}, {"format": "integer", "type": "number"}]
+            }
+        },
+        "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    assert {"foo": 42} == serializer.dump(WithUnion(foo=42), validate=True)
+    assert {"foo": "bar"} == serializer.dump(WithUnion(foo="bar"), validate=True)
+    with pytest.raises(serpyco.ValidationError):
+        serializer.dump(WithUnion(foo=12.34), validate=True)
+

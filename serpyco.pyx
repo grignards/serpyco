@@ -136,31 +136,35 @@ class Validator(object):
             )
 
             # Update definitions to objects
-            item_type = field_type
+            item_types = [field_type]
             if _is_optional(field_type):
-                item_type = field_type.__args__[0]
+                item_types = [field_type.__args__[0]]
+            elif _is_union(field_type):
+                item_types = field_type.__args__
             elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
-                item_type = field_type.__args__[1]
+                item_types = [field_type.__args__[1]]
             elif (_issubclass_safe(field_type, (typing.Sequence, typing.List)) and not  # noqa: E501
                   _issubclass_safe(field_type, str)):
-                item_type = field_type.__args__[0]
+                item_types = [field_type.__args__[0]]
 
-            # Prevent recursion from forward refs & circular type dependencies
-            if (
-                dataclasses.is_dataclass(item_type) and
-                item_type.__name__ not in definitions
-            ):
-                for validator in parent_validators:
-                    if validator._data_class == item_type:
-                        break
-                else:
-                    sub = Validator(item_type)
-                    item_schema = sub._create_json_schema(
-                        embeddable=True,
-                        parent_validators=parent_validators
-                    )
-                    definitions[item_type.__name__] = None
-                    definitions.update(item_schema)
+
+            for item_type in item_types:
+                # Prevent recursion from forward refs & circular type dependencies
+                if (
+                    dataclasses.is_dataclass(item_type) and
+                    item_type.__name__ not in definitions
+                ):
+                    for validator in parent_validators:
+                        if validator._data_class == item_type:
+                            break
+                    else:
+                        sub = Validator(item_type)
+                        item_schema = sub._create_json_schema(
+                            embeddable=True,
+                            parent_validators=parent_validators
+                        )
+                        definitions[item_type.__name__] = None
+                        definitions.update(item_schema)
             if is_required:
                 required.append(hints.dict_key)
         schema = {
@@ -213,6 +217,13 @@ class Validator(object):
                     parent_validators
                 )[0]
                 required = False
+            elif _is_union(field_type):
+                schemas = [
+                    self._get_field_schema(item_type, parent_validators)[0]
+                    for item_type in field_type.__args__
+                ]
+                field_schema["oneOf"] = schemas
+                del field_schema["type"]
             elif _issubclass_safe(field_type, enum.Enum):
                 member_types = set()
                 values = []
@@ -428,6 +439,12 @@ cdef class Serializer(object):
             return None
         elif _is_optional(field_type):
             return self._get_encoder(field_type.__args__[0])
+        elif _is_union(field_type):
+            type_encoders = [
+                (item_type, self._get_encoder(item_type))
+                for item_type in field_type.__args__
+            ]
+            return UnionFieldEncoder(type_encoders)
         elif _issubclass_safe(field_type, (typing.Mapping, typing.Dict)):
             key_encoder = self._get_encoder(field_type.__args__[0])
             value_encoder = self._get_encoder(field_type.__args__[1])
@@ -474,12 +491,21 @@ def _issubclass_safe(field_type, classes) -> bool:
         return False
 
 
-def _is_optional(field_type) -> bool:
+def _is_union(field_type) -> bool:
+    # issubclass doesn't work with Union...
     field_type_name = str(field_type)
     return (
         field_type_name.startswith("Union") or
         field_type_name.startswith("typing.Union")
-    ) and issubclass(field_type.__args__[1], type(None))
+    )
+
+
+def _is_optional(field_type) -> bool:
+    return (
+        _is_union(field_type) and
+        2 == len(field_type.__args__) and
+        issubclass(field_type.__args__[1], type(None))
+    )
 
 
 @cython.final
@@ -618,6 +644,26 @@ cdef class UuidFieldEncoder(FieldEncoder):
     @property
     def json_schema(self):
         return {"type": "string", "format": "uuid"}
+
+@cython.final
+cdef class UnionFieldEncoder(FieldEncoder):
+
+    cdef list _type_encoders
+
+    def __init__(self, type_encoders: typing.List[typing.Tuple[typing.ClassVar, FieldEncoder]]):
+        self._type_encoders = type_encoders
+
+    cpdef inline dump(self, value):
+        for value_type, encoder in self._type_encoders:
+            if isinstance(value, value_type):
+                return encoder.dump(value) if encoder else value
+        raise ValidationError(f"{value_type} is not a Union member")
+
+    cpdef inline load(self, value):
+        for value_type, encoder in self._type_encoders:
+            if isinstance(value, value_type):
+                return encoder.load(value) if encoder else value
+        raise ValidationError(f"{value_type} is not a Union member")
 
 
 class FieldHints(object):
