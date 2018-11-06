@@ -74,6 +74,12 @@ class Validator(object):
     _custom_schemas: JsonDict = {}
 
     def __init__(self, data_class: typing.ClassVar, many: bool=False) -> None:
+        """
+        Creates a Validator for the given data_class.
+        :param data_class dataclass.
+        :param many if True, the validator will validate against lists
+        of data_class.
+        """
         self._data_class = data_class
         self._json_schema: typing.Optional[str] = None
         self._many = many
@@ -84,9 +90,17 @@ class Validator(object):
         ]
 
     def validate(self, data: typing.Union[dict, list]) -> None:
+        """
+        Validates the given data against the schema generated from this
+        validator's dataclass.
+        """
         self.validate_json(rapidjson.dumps(data))
 
     def validate_json(self, json_string: str) -> None:
+        """
+        Validates a JSON string against the schema of this validator's
+        dataclass.
+        """
         if not self._validator:
             js = rapidjson.dumps(self.json_schema())
             self._validator = rapidjson.Validator(js)
@@ -96,6 +110,9 @@ class Validator(object):
             raise ValidationError(str(exc))
 
     def json_schema(self) -> JsonDict:
+        """
+        Returns the json schema built from this validator's dataclass.
+        """
         if not self._json_schema:
             self._json_schema = self._create_json_schema()
         return self._json_schema
@@ -106,6 +123,9 @@ class Validator(object):
         type_: typing.ClassVar,
         schema: JsonDict
     ) -> None:
+        """
+        Can be used to register a custom JSON schema for the given type.
+        """
         cls._custom_schemas[type_] = schema
 
     def _create_json_schema(
@@ -332,6 +352,9 @@ cdef class Serializer(object):
         self._validator = Validator(data_class, many=many)
 
     def json_schema(self) -> JsonDict:
+        """
+        Returns the JSON schema of the underlying validator.
+        """
         return self._validator.json_schema()
 
     @classmethod
@@ -340,11 +363,17 @@ cdef class Serializer(object):
         field_type: typing.ClassVar,
         encoder: FieldEncoder
     ) -> None:
+        """
+        Registers a encoder/decoder for the given type.
+        """
         cls._field_encoders[field_type] = encoder
         Validator.register_custom_schema(field_type, encoder.json_schema)
 
     @property
     def data_class(self) -> typing.ClassVar:
+        """
+        Returns the dataclass used to construct this serializer.
+        """
         return self._data_class
 
     cpdef inline dump(
@@ -352,6 +381,11 @@ cdef class Serializer(object):
         obj: typing.Union[object, typing.Iterable],
         validate: bool=False
     ):
+        """
+        Dumps the object(s) in the form of a dict/list only
+        composed of builtin python types.
+        :param validate if True, the dumped data will be validated.
+        """
         if self._many:
             data = [self._dump(o) for o in obj]
         else:
@@ -365,6 +399,12 @@ cdef class Serializer(object):
         data: typing.Union[dict, typing.Iterable],
         validate: bool=True
     ):
+        """
+        Loads the given data and returns object(s) of this serializer's
+        dataclass.
+        :param validate if True, the data will be validated before
+        creating objects.
+        """
         if validate:
             self._validator.validate(data)
 
@@ -377,6 +417,10 @@ cdef class Serializer(object):
         obj: typing.Union[object, typing.Iterable],
         validate: bool=False
     ):
+        """
+        Dumps the object(s) in the form of a JSON string.
+        :param validate if True, the dumped data will be validated.
+        """
         if self._many:
             data = [self._dump(o) for o in obj]
         else:
@@ -390,7 +434,10 @@ cdef class Serializer(object):
 
     cpdef inline object load_json(self, js: str, validate: bool=True):
         """
-        Constructs
+        Loads the given JSON string and returns object(s) of this serializer's
+        dataclass.
+        :param validate if True, the JSON will be validated before
+        creating objects.
         """
         if validate:
             self._validator.validate_json(js)
