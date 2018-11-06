@@ -1,6 +1,5 @@
 # cython: boundscheck=False
 # cython: language_level=3
-# cython: profile=True
 
 import datetime
 import enum
@@ -142,10 +141,9 @@ class Validator(object):
                 item_types = [field_type.__args__[0]]
             elif _is_union(field_type):
                 item_types = field_type.__args__
-            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
+            elif _is_generic(field_type, (typing.Dict, typing.Mapping)):
                 item_types = [field_type.__args__[1]]
-            elif (_issubclass_safe(field_type, (typing.Sequence, typing.List)) and not  # noqa: E501
-                  _issubclass_safe(field_type, str)):
+            elif _is_generic(field_type, (typing.Sequence, typing.List)):
                 item_types = [field_type.__args__[0]]
 
             for item_type in item_types:
@@ -244,7 +242,7 @@ class Validator(object):
                     field_schema["description"] = field_type.__doc__.strip()
             elif field_type in JSON_ENCODABLE_TYPES:
                 field_schema = JSON_ENCODABLE_TYPES[field_type]
-            elif _issubclass_safe(field_type, (typing.Dict, typing.Mapping)):
+            elif _is_generic(field_type, (typing.Dict, typing.Mapping)):
                 field_schema = {"type": "object"}
                 if field_type.__args__[1] is not typing.Any:
                     add = self._get_field_schema(
@@ -252,7 +250,7 @@ class Validator(object):
                         parent_validators
                     )[0]
                     field_schema["additionalProperties"] = add
-            elif _issubclass_safe(field_type, (typing.Sequence, typing.List)):
+            elif _is_generic(field_type, (typing.Sequence, typing.List)):
                 field_schema = {"type": "array"}
                 if field_type.__args__[0] is not typing.Any:
                     items = self._get_field_schema(
@@ -445,13 +443,13 @@ cdef class Serializer(object):
                 for item_type in field_type.__args__
             ]
             return UnionFieldEncoder(type_encoders)
-        elif _issubclass_safe(field_type, (typing.Mapping, typing.Dict)):
+        elif _is_generic(field_type, (typing.Mapping, typing.Dict)):
             key_encoder = self._get_encoder(field_type.__args__[0])
             value_encoder = self._get_encoder(field_type.__args__[1])
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
-        elif _issubclass_safe(field_type, (typing.Sequence, typing.List)):
+        elif _is_generic(field_type, (typing.Sequence, typing.List)):
             item_encoder = self._get_encoder(field_type.__args__[0])
             if item_encoder:
                 return ListFieldEncoder(item_encoder, field_type)
@@ -491,13 +489,17 @@ def _issubclass_safe(field_type, classes) -> bool:
         return False
 
 
+def _is_generic(field_type, types) -> bool:
+    try:
+        return issubclass(field_type.__origin__, types)
+    except (TypeError, AttributeError):
+        return False
+
 def _is_union(field_type) -> bool:
-    # issubclass doesn't work with Union...
-    field_type_name = str(field_type)
-    return (
-        field_type_name.startswith("Union") or
-        field_type_name.startswith("typing.Union")
-    )
+    try:
+        return field_type.__origin__ is typing.Union
+    except AttributeError:
+        return False
 
 
 def _is_optional(field_type) -> bool:
@@ -549,7 +551,7 @@ cdef class ListFieldEncoder(FieldEncoder):
 
     def __init__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
-        if issubclass(sequence_type, typing.List):
+        if _is_generic(sequence_type, typing.List):
             self._sequence_type = list
         else:
             self._sequence_type = sequence_type

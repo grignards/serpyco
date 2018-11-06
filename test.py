@@ -49,11 +49,15 @@ class Types(object):
 
 @dataclasses.dataclass
 class First(object):
+    """Cycle test class"""
+
     second: "Second"
 
 
 @dataclasses.dataclass
 class Second(object):
+    """Cycle test class"""
+
     first: First
 
 
@@ -271,13 +275,13 @@ def test_unit__json_schema__ok__cycle() -> None:
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
             "Second": {
-                "description": "Second(first:test.First)",
+                "description": "Cycle test class",
                 "properties": {"first": {"$ref": "#", "type": "object"}},
                 "required": ["first"],
                 "type": "object",
             }
         },
-        "description": "First(second:'Second')",
+        "description": "Cycle test class",
         "properties": {"second": {"$ref": "#/definitions/Second", "type": "object"}},
         "required": ["second"],
         "type": "object",
@@ -311,6 +315,8 @@ def test_unit__load_json__ok__validate() -> None:
 def test_unit__union__ok__nominal_case() -> None:
     @dataclasses.dataclass
     class WithUnion(object):
+        """Union test class"""
+
         foo: typing.Union[str, int]
 
     serializer = serpyco.Serializer(WithUnion)
@@ -318,7 +324,7 @@ def test_unit__union__ok__nominal_case() -> None:
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {},
-        "description": "WithUnion(foo:Union[str, int])",
+        "description": "Union test class",
         "properties": {
             "foo": {
                 "oneOf": [{"type": "string"}, {"format": "integer", "type": "number"}]
