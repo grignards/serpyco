@@ -4,11 +4,11 @@ import datetime
 import enum
 import json
 import typing
-import dataclasses
 
-import dateutil
 import pytest
 
+import dataclasses
+import dateutil
 import serpyco
 
 
@@ -340,4 +340,3 @@ def test_unit__union__ok__nominal_case() -> None:
     assert {"foo": "bar"} == serializer.dump(WithUnion(foo="bar"), validate=True)
     with pytest.raises(serpyco.ValidationError):
         serializer.dump(WithUnion(foo=12.34), validate=True)
-

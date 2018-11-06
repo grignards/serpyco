@@ -3,7 +3,6 @@
 from pprint import pprint
 
 from dataclasses import dataclass
-
 from serpyco import Serializer
 
 

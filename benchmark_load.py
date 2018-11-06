@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import dataslots
 import timeit
 import typing
 
-import dataclasses
+import dataslots
 
+import dataclasses
 import serpyco
 
 

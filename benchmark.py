@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import rapidjson
 import json
+import pprint
 import timeit
 import typing
-import dataslots
-import dataclasses
-import pprint
 
+import dataslots
+
+import dataclasses
+import rapidjson
 import serpyco
 
 
