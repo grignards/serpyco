@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import dataslots
 import timeit
 import typing
