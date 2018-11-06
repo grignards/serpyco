@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.4
+
+- support Python 3.7
+
 ## v0.3
 
 - support typing.Union[] fields
