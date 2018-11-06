@@ -1,22 +1,21 @@
 # -*- coding: utf-8 -*-
 
-from setuptools import setup
-
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    print("You need Cython to build this package")
-    raise
+from setuptools import setup, Extension
 
 requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
 
 setup(
     name="serpyco",
-    version="0.4",
+    version="0.4.1",
     description="Fast serialization of dataclasses using Cython",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
     url="https://gitlab.com/sgrignard/serpyco",
+    setup_requires=[
+        # Setuptools 18.0 properly handles Cython extensions.
+        "setuptools>=18.0",
+        "cython",
+    ],
     install_requires=requires,
     tests_require=["pytest", "flake8"],
     license="MIT",
@@ -29,6 +28,6 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Software Development :: Libraries",
     ],
-    ext_modules=cythonize("serpyco.pyx"),
+    ext_modules=[Extension("serpyco", sources=["serpyco.pyx"])],
     zip_safe=False,
 )
