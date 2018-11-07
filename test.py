@@ -343,3 +343,57 @@ def test_unit__tuple__ok__nominal_case() -> None:
         {"tuple_": ["foo", "bar"]}
     )
 
+
+def test_unit__string_field__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithStringField(object):
+        """String field test class"""
+
+        foo: str = serpyco.string_field(
+            format_=serpyco.StringFormat.EMAIL,
+            pattern="^[A-Z]",
+            min_length=3,
+            max_length=24,
+        )
+
+    serializer = serpyco.Serializer(WithStringField)
+
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "String field test class",
+        "properties": {
+            "foo": {
+                "type": "string",
+                "format": "email",
+                "pattern": "^[A-Z]",
+                "minLength": 3,
+                "maxLength": 24,
+            }
+        },
+        "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    assert serializer.load({"foo": "Foo@foo.bar"})
+
+
+def test_unit__number_field__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithNumberField(object):
+        """Number field test class"""
+
+        foo: int = serpyco.number_field(minimum=0, maximum=12)
+
+    serializer = serpyco.Serializer(WithNumberField)
+
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Number field test class",
+        "properties": {"foo": {"type": "integer", "minimum": 0, "maximum": 12}},
+        "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    assert serializer.load({"foo": 5})

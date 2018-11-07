@@ -51,16 +51,109 @@ cdef class FieldEncoder(object):
         raise NotImplementedError()
 
 
-def field(dict_key: str=None, *args, **kwargs):
+class StringFormat(str, enum.Enum):
+    """Possible formats for a string field"""
+
+    DATETIME = "date-time"
+    EMAIL = "email"
+    HOSTNAME = "hostname"
+    IPV4 = "ipv4"
+    IPV6 = "ipv6"
+    URI = "uri"
+
+
+def field(dict_key: str=None, *args, **kwargs) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on dataclass fields.
     Call it at field declaration as you would do with dataclass.field().
+    Additional parameters will be passed verbatim to dataclass.field().
     :param dict_key: key of the field in the output dictionaries.
     """
     metadata = kwargs.get("metadata", {})
-    metadata[__name__] = FieldHints(dict_key=dict_key)
+    hints = FieldHints(dict_key=dict_key)
+    
+    for attr in vars(hints):
+        setattr(hints, attr, kwargs.pop(attr, None))
+
+    metadata[__name__] = hints
     kwargs["metadata"] = metadata
     return dataclasses.field(*args, **kwargs)
+
+
+def string_field(
+    dict_key:str=None,
+    format_: StringFormat=None,
+    pattern: str=None,
+    min_length: int=None,
+    max_length: int=None,
+    *args,
+    **kwargs,
+)  -> dataclasses.Field:
+    """
+    Convenience function to setup Serializer hints for a str dataclass field.
+    Call it at field declaration as you would do with dataclass.field().
+    Additional parameters will be passed verbatim to dataclass.field().
+    :param dict_key: key of the field in the output dictionaries.
+    :param format_: additional semantic validation for strings
+    :param pattern: restricts the strings of this field to the given
+    regular expression.
+    :param min_length minimum string length
+    :param max_length maximum string length
+    """
+    return field(
+        dict_key,
+        *args,
+        format_=format_,
+        pattern=pattern,
+        min_length=min_length,
+        max_length=max_length,
+        **kwargs
+    )
+
+
+def number_field(
+    dict_key: str=None,
+    minimum: int=None,
+    maximum: int=None,
+    *args,
+    **kwargs,
+) -> dataclasses.Field:
+    """
+    Convenience function to setup Serializer hints for a number (int/float)
+    dataclass field.
+    Call it at field declaration as you would do with dataclass.field().
+    Additional parameters will be passed verbatim to dataclass.field().
+    :param dict_key: key of the field in the output dictionaries.
+    :param minimum: minimum allowed value (inclusive)
+    :param maximum: maximum allowed value (inclusive
+    """
+    return field(
+        dict_key,
+        *args,
+        minimum=minimum,
+        maximum=maximum,
+        **kwargs
+    )
+
+
+class FieldHints(object):
+    def __init__(
+        self,
+        dict_key: typing.Optional[str],
+        format_: typing.Optional[str]=None,
+        pattern: typing.Optional[str]=None,
+        min_length: typing.Optional[int]=None,
+        max_length: typing.Optional[int]=None,
+        minimum: typing.Optional[int]=None,
+        maximum: typing.Optional[int]=None,
+    ) -> None:
+        self.dict_key = dict_key
+        self.format_ = format_
+        self.pattern = pattern
+        self.min_length = min_length
+        self.max_length = max_length
+        self.minimum = minimum
+        self.maximum = maximum
 
 
 JsonDict = typing.Dict[str, typing.Any]
@@ -152,7 +245,8 @@ class Validator(object):
             field_type = type_hints[field_name]
             properties[hints.dict_key], is_required = self._get_field_schema(
                 field_type,
-                parent_validators
+                parent_validators,
+                hints=hints
             )
 
             # Update definitions to objects
@@ -215,7 +309,8 @@ class Validator(object):
     def _get_field_schema(
         self,
         field_type: typing.Any,
-        parent_validators: typing.List["Validator"]
+        parent_validators: typing.List["Validator"],
+        hints: typing.Optional[FieldHints]=None,
     ) -> typing.Tuple[JsonDict, bool]:
         field_schema: JsonDict = {"type": "object"}
         required = True
@@ -261,7 +356,21 @@ class Validator(object):
                     field_schema["description"] = field_type.__doc__.strip()
             elif field_type in JSON_ENCODABLE_TYPES:
                 field_schema = JSON_ENCODABLE_TYPES[field_type]
-            elif _is_generic(field_type, (typing.Dict, typing.Mapping)):
+                validation_hints = [
+                    ("format_", "format"),
+                    ("pattern", "pattern"),
+                    ("max_length", "maxLength"),
+                    ("min_length", "minLength"),
+                    ("minimum", "minimum"),
+                    ("maximum", "maximum"),
+                ]
+                if hints:
+                    for hint_attr, schema_attr in validation_hints:
+                        attr = getattr(hints, hint_attr)
+                        if attr is not None:
+                            field_schema[schema_attr] = attr
+
+            elif _is_generic(field_type, typing.Mapping):
                 field_schema = {"type": "object"}
                 if field_type.__args__[1] is not typing.Any:
                     add = self._get_field_schema(
@@ -269,7 +378,7 @@ class Validator(object):
                         parent_validators
                     )[0]
                     field_schema["additionalProperties"] = add
-            elif _is_generic(field_type, (typing.Sequence, typing.List)):
+            elif _is_generic(field_type, typing.Sequence):
                 field_schema = {"type": "array"}
                 if field_type.__args__[0] is not typing.Any:
                     items = self._get_field_schema(
@@ -345,6 +454,8 @@ cdef class Serializer(object):
         for f in dataclasses.fields(data_class):
             field_type = type_hints[f.name]
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
+            if not hints.dict_key:
+                hints.dict_key = f.name
             encoder = self._get_encoder(field_type)
             self._fields.append((f.name, hints.dict_key, encoder))
 
@@ -724,8 +835,3 @@ cdef class UnionFieldEncoder(FieldEncoder):
             if isinstance(value, value_type):
                 return encoder.load(value) if encoder else value
         raise ValidationError(f"{value_type} is not a Union member")
-
-
-class FieldHints(object):
-    def __init__(self, dict_key: typing.Optional[str]) -> None:
-        self.dict_key = dict_key
