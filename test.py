@@ -184,19 +184,15 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "enum_": {
                 "description": "An enumerate.",
                 "enum": [1, 2],
-                "format": "integer",
-                "type": "number",
+                "type": "integer",
             },
-            "integer": {"format": "integer", "type": "number"},
+            "integer": {"type": "integer"},
             "items": {"items": {"type": "string"}, "type": "array"},
             "mapping": {"additionalProperties": {"type": "string"}, "type": "object"},
-            "nested": {"$ref": "#/definitions/Simple", "type": "object"},
-            "nesteds": {
-                "items": {"$ref": "#/definitions/Simple", "type": "object"},
-                "type": "array",
-            },
-            "number": {"format": "float", "type": "number"},
-            "optional": {"format": "integer", "type": "number"},
+            "nested": {"$ref": "#/definitions/Simple"},
+            "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
+            "number": {"type": "number"},
+            "optional": {"type": "integer"},
             "string": {"type": "string"},
         },
         "required": [
@@ -235,22 +231,18 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "enum_": {
                     "description": "An enumerate.",
                     "enum": [1, 2],
-                    "format": "integer",
-                    "type": "number",
+                    "type": "integer",
                 },
-                "integer": {"format": "integer", "type": "number"},
+                "integer": {"type": "integer"},
                 "items": {"items": {"type": "string"}, "type": "array"},
                 "mapping": {
                     "additionalProperties": {"type": "string"},
                     "type": "object",
                 },
-                "nested": {"$ref": "#/definitions/Simple", "type": "object"},
-                "nesteds": {
-                    "items": {"$ref": "#/definitions/Simple", "type": "object"},
-                    "type": "array",
-                },
-                "number": {"format": "float", "type": "number"},
-                "optional": {"format": "integer", "type": "number"},
+                "nested": {"$ref": "#/definitions/Simple"},
+                "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
+                "number": {"type": "number"},
+                "optional": {"type": "integer"},
                 "string": {"type": "string"},
             },
             "required": [
@@ -278,13 +270,13 @@ def test_unit__json_schema__ok__cycle() -> None:
         "definitions": {
             "Second": {
                 "description": "Cycle test class",
-                "properties": {"first": {"$ref": "#", "type": "object"}},
+                "properties": {"first": {"$ref": "#"}},
                 "required": ["first"],
                 "type": "object",
             }
         },
         "description": "Cycle test class",
-        "properties": {"second": {"$ref": "#/definitions/Second", "type": "object"}},
+        "properties": {"second": {"$ref": "#/definitions/Second"}},
         "required": ["second"],
         "type": "object",
     } == ser.json_schema()
@@ -327,11 +319,7 @@ def test_unit__union__ok__nominal_case() -> None:
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {},
         "description": "Union test class",
-        "properties": {
-            "foo": {
-                "oneOf": [{"type": "string"}, {"format": "integer", "type": "number"}]
-            }
-        },
+        "properties": {"foo": {"oneOf": [{"type": "string"}, {"type": "integer"}]}},
         "required": ["foo"],
         "type": "object",
     } == serializer.json_schema()

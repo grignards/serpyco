@@ -226,7 +226,6 @@ class Validator(object):
             else:
                 ref = "#/definitions/{}".format(field_type_name)
             field_schema = {
-                "type": "object",
                 "$ref": ref
             }
         else:
@@ -520,9 +519,9 @@ cdef class Serializer(object):
 
 JSON_ENCODABLE_TYPES = {
     str: {"type": "string"},
-    int: {"type": "number", "format": "integer"},
+    int: {"type": "integer"},
     bool: {"type": "boolean"},
-    float: {"type": "number", "format": "float"}
+    float: {"type": "number"}
 }
 
 
