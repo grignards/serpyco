@@ -489,18 +489,15 @@ cdef class Serializer(object):
                 for item_type in field_type.__args__
             ]
             return UnionFieldEncoder(type_encoders)
-        elif _is_generic(field_type, (typing.Mapping, typing.Dict)):
+        elif _is_generic(field_type, typing.Mapping):
             key_encoder = self._get_encoder(field_type.__args__[0])
             value_encoder = self._get_encoder(field_type.__args__[1])
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
-        elif _is_generic(field_type, (typing.Sequence, typing.List)):
+        elif _is_generic(field_type, typing.Sequence):
             item_encoder = self._get_encoder(field_type.__args__[0])
-            if item_encoder:
-                return ListFieldEncoder(item_encoder, field_type)
-            else:
-                return None
+            return ListFieldEncoder(item_encoder, field_type)
         elif dataclasses.is_dataclass(field_type):
             # See if one of our "ancestors" handles this type.
             # This avoids infinite recursion if data_classes establish a cycle
@@ -597,16 +594,18 @@ cdef class ListFieldEncoder(FieldEncoder):
 
     def __init__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
-        if _is_generic(sequence_type, typing.List):
-            self._sequence_type = list
-        else:
-            self._sequence_type = sequence_type
+        self._sequence_type = sequence_type.__origin__
 
     cpdef inline load(self, value: typing.Any):
-        return self._sequence_type(map(self._item_encoder.load, value))
+        if self._item_encoder:
+            return self._sequence_type(map(self._item_encoder.load, value))
+        return self._sequence_type(value)
 
     cpdef inline dump(self, value: typing.Any):
-        return self._sequence_type(map(self._item_encoder.dump, value))
+        if self._item_encoder:
+            return self._sequence_type(map(self._item_encoder.dump, value))
+        return self._sequence_type(value)
+        
 
 
 @cython.final

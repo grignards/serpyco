@@ -328,3 +328,18 @@ def test_unit__union__ok__nominal_case() -> None:
     assert {"foo": "bar"} == serializer.dump(WithUnion(foo="bar"), validate=True)
     with pytest.raises(serpyco.ValidationError):
         serializer.dump(WithUnion(foo=12.34), validate=True)
+
+
+def test_unit__tuple__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithTuple(object):
+        """Tuple test class"""
+
+        tuple_: typing.Tuple[str]
+
+    serializer = serpyco.Serializer(WithTuple)
+
+    assert WithTuple(tuple_=("foo", "bar")) == serializer.load(
+        {"tuple_": ["foo", "bar"]}
+    )
+
