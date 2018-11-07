@@ -397,3 +397,16 @@ def test_unit__number_field__ok__nominal_case() -> None:
     } == serializer.json_schema()
 
     assert serializer.load({"foo": 5})
+
+
+def test_unit__field_dict_key__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithDictKeyField(object):
+        """Dict key test class"""
+
+        foo: str = serpyco.field(dict_key="bar")
+
+    serializer = serpyco.Serializer(WithDictKeyField)
+    print(serializer.json_schema())
+    assert {"bar": "hello"} == serializer.dump(WithDictKeyField(foo="hello"))
+    assert WithDictKeyField(foo="hello") == serializer.load({"bar": "hello"})

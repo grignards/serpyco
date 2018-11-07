@@ -72,8 +72,9 @@ def field(dict_key: str=None, *args, **kwargs) -> dataclasses.Field:
     metadata = kwargs.get("metadata", {})
     hints = FieldHints(dict_key=dict_key)
     
-    for attr in vars(hints):
-        setattr(hints, attr, kwargs.pop(attr, None))
+    for attr in vars(hints).keys():
+        if attr!="dict_key":
+            setattr(hints, attr, kwargs.pop(attr, None))
 
     metadata[__name__] = hints
     kwargs["metadata"] = metadata
@@ -177,10 +178,12 @@ class Validator(object):
         self._json_schema: typing.Optional[str] = None
         self._many = many
         self._validator: typing.Optional[rapidjson.Validator] = None
-        self._fields = [
-            (f.name, f.metadata.get(__name__, FieldHints(dict_key=f.name)))
-            for f in dataclasses.fields(data_class)
-        ]
+        self._fields = []
+        for f in dataclasses.fields(data_class):
+            hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
+            if hints.dict_key is None:
+                hints.dict_key = f.name
+            self._fields.append((f.name, hints))
 
     def validate(self, data: typing.Union[dict, list]) -> None:
         """
@@ -355,7 +358,7 @@ class Validator(object):
                 if field_type.__doc__:
                     field_schema["description"] = field_type.__doc__.strip()
             elif field_type in JSON_ENCODABLE_TYPES:
-                field_schema = JSON_ENCODABLE_TYPES[field_type]
+                field_schema = dict(JSON_ENCODABLE_TYPES[field_type])
                 validation_hints = [
                     ("format_", "format"),
                     ("pattern", "pattern"),
@@ -454,7 +457,7 @@ cdef class Serializer(object):
         for f in dataclasses.fields(data_class):
             field_type = type_hints[f.name]
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
-            if not hints.dict_key:
+            if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type)
             self._fields.append((f.name, hints.dict_key, encoder))
