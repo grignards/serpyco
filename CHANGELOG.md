@@ -1,5 +1,11 @@
 # Serpyco changelog
 
+## v0.5
+
+- support typing.Tuple[] fields
+- simpler schemas for integers/numbers
+- remove `"type": "object"` from `$ref` schemas
+
 ## v0.4
 
 - support Python 3.7

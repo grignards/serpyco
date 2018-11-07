@@ -20,3 +20,8 @@ try:
     serializer.load({"x": 3.14, "y": "wrong"})
 except Exception as ex:
     pprint(ex)
+pprint(serializer.dump(Point(x=3.14, y=1.5)))
+try:
+    serializer.dump(Point(x=3.14, y="wrong"), validate=True)
+except Exception as ex:
+    pprint(ex)

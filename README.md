@@ -1,4 +1,4 @@
-# Dataclasses Serializer
+# Serpyco: a serializer for python dataclasses
 
 Fast serializer for Python 3.7 dataclasses. Python 3.6 is supported through the dataclasses backport.
 Also provides data validation through JSON Schema generation and rapidjson validator.
@@ -33,8 +33,8 @@ Serialization is optimized using Cython (but I'm a beginner regarding this, so M
     {'$schema': 'http://json-schema.org/draft-04/schema#',
     'definitions': {},
     'description': 'Point(x:float, y:float)',
-    'properties': {'x': {'format': 'float', 'type': 'number'},
-                    'y': {'format': 'float', 'type': 'number'}},
+    'properties': {'x': {'type': 'number'},
+                    'y': {'type': 'number'}},
     'required': ['x', 'y'],
     'type': 'object'}
 ```
@@ -46,6 +46,16 @@ Serialization is optimized using Cython (but I'm a beginner regarding this, so M
     >>> serializer.load({'x': 3.14, 'y': 1.5})
     Point(x=3.14, y=1.5)
     >>> serializer.load({'x': 3.14, 'y': 'wrong'})
+    ValidationError('type', '#/properties/y', '#/y')
+```
+
+### Serialize data
+
+```python
+
+    >>> serializer.dump(Point(x=3.14, y=1.5))
+    {'x': 3.14, 'y': 1.5}
+    >>> serializer.dump({'x': 3.14, 'y': 'wrong'}, validate=True)
     ValidationError('type', '#/properties/y', '#/y')
 ```
 
