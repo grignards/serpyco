@@ -592,9 +592,18 @@ cdef class ListFieldEncoder(FieldEncoder):
     cdef FieldEncoder _item_encoder
     cdef object _sequence_type
 
+    _sequence_types_mapping = {
+        typing.Tuple: tuple,
+        typing.List: list,
+    }
+
     def __init__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
-        self._sequence_type = sequence_type.__origin__
+
+        self._sequence_type = self._sequence_types_mapping.get(
+            sequence_type.__origin__,
+            sequence_type.__origin__
+        )
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
