@@ -175,7 +175,6 @@ class Validator(object):
         of data_class.
         """
         self._data_class = data_class
-        self._json_schema: typing.Optional[str] = None
         self._many = many
         self._validator: typing.Optional[rapidjson.Validator] = None
         self._fields = []
@@ -209,9 +208,7 @@ class Validator(object):
         """
         Returns the json schema built from this validator's dataclass.
         """
-        if not self._json_schema:
-            self._json_schema = self._create_json_schema()
-        return self._json_schema
+        return self._create_json_schema()
 
     @classmethod
     def register_custom_schema(
