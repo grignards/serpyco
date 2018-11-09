@@ -177,7 +177,8 @@ class Validator(object):
         self,
         data_class: type,
         many: bool=False,
-        type_schemas: typing.Dict[type, dict]={}
+        type_schemas: typing.Dict[type, dict]={},
+        only: typing.Optional[typing.List[str]]=None,
     ) -> None:
         """
         Creates a Validator for the given data_class.
@@ -185,6 +186,7 @@ class Validator(object):
         :param many if True, the validator will validate against lists
         of data_class.
         :param type_schemas type <-> schema mapping
+        :param only if given, only the fields in this list will be used
         """
         self._data_class = data_class
         self._many = many
@@ -193,7 +195,7 @@ class Validator(object):
         self._fields: typing.List[typing.Tuple[str, FieldHints]] = []
         for f in dataclasses.fields(data_class):
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
-            if hints.ignore:
+            if hints.ignore or (only and f.name not in only):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
@@ -459,6 +461,7 @@ cdef class Serializer(object):
         many: bool=False,
         omit_none: bool=True,
         type_encoders: typing.Dict[type, FieldEncoder]={},
+        only: typing.Optional[typing.List[str]]=None,
         _parent_serializers: typing.List["Serializer"]=None
     ):
         """
@@ -466,7 +469,9 @@ cdef class Serializer(object):
         :param data_class data class this serializer will handle
         :param many if True, serializer will handle lists of the data_class
         :param omit_none if False, keep None values in the serialized dicts
-        :type_encoders: encoders to use for given types
+        :param type_encoders encoders to use for given types
+        :param only list of fields to serialize.
+        If None, all fields are serialized.
         """
         if not dataclasses.is_dataclass(data_class):
             raise BaseSerpycoError(f"{data_class} is not a dataclass")
@@ -482,17 +487,22 @@ cdef class Serializer(object):
         for f in dataclasses.fields(data_class):
             field_type = type_hints[f.name]
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
-            if hints.ignore:
+            if hints.ignore or (only and f.name not in only):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type)
             self._fields.append((f.name, hints.dict_key, encoder))
 
-        self._validator = Validator(data_class, many=many, type_schemas={
-            type_: encoder.json_schema()
-            for type_, encoder in self._types.items()
-        })
+        self._validator = Validator(
+            data_class,
+            many=many,
+            only=only, 
+            type_schemas={
+                type_: encoder.json_schema()
+                for type_, encoder in self._types.items()
+            }
+        )
 
     def json_schema(self) -> JsonDict:
         """

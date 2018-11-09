@@ -506,3 +506,23 @@ def test_unit__ignore__ok__nominal_case():
         "properties": {},
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__only__ok__nominal_case():
+    @dataclasses.dataclass
+    class Only(object):
+        """Only test class"""
+
+        foo: str
+        bar: str
+
+    serializer = serpyco.Serializer(Only, only=["foo"])
+    assert {"foo": "bar"} == serializer.dump(Only(foo="bar", bar="foo"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Only test class",
+        "definitions": {},
+        "properties": {"foo": {"type": "string"}},
+        "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()
