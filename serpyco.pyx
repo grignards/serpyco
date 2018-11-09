@@ -61,18 +61,19 @@ class StringFormat(str, enum.Enum):
     URI = "uri"
 
 
-def field(dict_key: str=None, *args, **kwargs) -> dataclasses.Field:
+def field(dict_key: str=None, ignore=False, *args, **kwargs) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on dataclass fields.
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
     :param dict_key: key of the field in the output dictionaries.
+    :param ignore: if True, the field won't be considered by serpico.
     """
     metadata = kwargs.get("metadata", {})
-    hints = FieldHints(dict_key=dict_key)
+    hints = FieldHints(dict_key=dict_key, ignore=ignore)
     
     for attr in vars(hints).keys():
-        if attr!="dict_key":
+        if attr not in ["dict_key", "ignore"]:
             setattr(hints, attr, kwargs.pop(attr, None))
 
     metadata[__name__] = hints
@@ -81,11 +82,12 @@ def field(dict_key: str=None, *args, **kwargs) -> dataclasses.Field:
 
 
 def string_field(
-    dict_key:str=None,
-    format_: StringFormat=None,
-    pattern: str=None,
-    min_length: int=None,
-    max_length: int=None,
+    dict_key: typing.Optional[str]=None,
+    ignore: bool=False,
+    format_: typing.Optional[StringFormat]=None,
+    pattern: typing.Optional[str]=None,
+    min_length: typing.Optional[int]=None,
+    max_length: typing.Optional[int]=None,
     *args,
     **kwargs,
 )  -> dataclasses.Field:
@@ -94,6 +96,7 @@ def string_field(
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
     :param dict_key: key of the field in the output dictionaries.
+    :param ignore: if True, this field won't be considered by serpico.
     :param format_: additional semantic validation for strings
     :param pattern: restricts the strings of this field to the given
     regular expression.
@@ -112,9 +115,10 @@ def string_field(
 
 
 def number_field(
-    dict_key: str=None,
-    minimum: int=None,
-    maximum: int=None,
+    dict_key: typing.Optional[str]=None,
+    ignore: bool=False,
+    minimum: typing.Optional[int]=None,
+    maximum: typing.Optional[int]=None,
     *args,
     **kwargs,
 ) -> dataclasses.Field:
@@ -124,6 +128,7 @@ def number_field(
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
     :param dict_key: key of the field in the output dictionaries.
+    :param ignore: if True, this field won't be considered by serpico.
     :param minimum: minimum allowed value (inclusive)
     :param maximum: maximum allowed value (inclusive
     """
@@ -140,6 +145,7 @@ class FieldHints(object):
     def __init__(
         self,
         dict_key: typing.Optional[str],
+        ignore: bool=False,
         format_: typing.Optional[str]=None,
         pattern: typing.Optional[str]=None,
         min_length: typing.Optional[int]=None,
@@ -148,6 +154,7 @@ class FieldHints(object):
         maximum: typing.Optional[int]=None,
     ) -> None:
         self.dict_key = dict_key
+        self.ignore = ignore
         self.format_ = format_
         self.pattern = pattern
         self.min_length = min_length
@@ -186,6 +193,8 @@ class Validator(object):
         self._fields: typing.List[typing.Tuple[str, FieldHints]] = []
         for f in dataclasses.fields(data_class):
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
+            if hints.ignore:
+                continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
             self._fields.append((f.name, hints))
@@ -473,6 +482,8 @@ cdef class Serializer(object):
         for f in dataclasses.fields(data_class):
             field_type = type_hints[f.name]
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
+            if hints.ignore:
+                continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type)

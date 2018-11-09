@@ -487,4 +487,22 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {"type": "string"}},
         "required": ["name"],
         "type": "object",
-    } == second.json_schema()
+    } == third.json_schema()
+
+
+def test_unit__ignore__ok__nominal_case():
+    @dataclasses.dataclass
+    class Ignore(object):
+        """Ignore test class"""
+
+        foo: str = serpyco.field(ignore=True)
+
+    serializer = serpyco.Serializer(Ignore)
+    assert {} == serializer.dump(Ignore(foo="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Ignore test class",
+        "definitions": {},
+        "properties": {},
+        "type": "object",
+    } == serializer.json_schema()
