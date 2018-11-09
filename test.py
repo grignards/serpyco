@@ -409,3 +409,82 @@ def test_unit__field_dict_key__ok__nominal_case() -> None:
     serializer = serpyco.Serializer(WithDictKeyField)
     assert {"bar": "hello"} == serializer.dump(WithDictKeyField(foo="hello"))
     assert WithDictKeyField(foo="hello") == serializer.load({"bar": "hello"})
+
+
+def test_unit__type_encoders__ok__nominal_case() -> None:
+    class Encoder(serpyco.FieldEncoder):
+        def json_schema(self) -> dict:
+            return {}
+
+        def dump(self, value):
+            return "foo"
+
+    serializer = serpyco.Serializer(Simple, type_encoders={str: Encoder()})
+
+    assert {"name": "foo"} == serializer.dump(Simple(name="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Basic class.",
+        "definitions": {},
+        "properties": {"name": {}},
+        "required": ["name"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    second = serpyco.Serializer(Simple)
+    assert {"name": "bar"} == second.dump(Simple(name="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Basic class.",
+        "definitions": {},
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+        "type": "object",
+    } == second.json_schema()
+
+
+def test_unit__global_type_encoders__ok__nominal_case() -> None:
+    class Encoder(serpyco.FieldEncoder):
+        def json_schema(self) -> dict:
+            return {}
+
+        def dump(self, value):
+            return "foo"
+
+    serpyco.Serializer.register_global_type(str, Encoder())
+
+    serializer = serpyco.Serializer(Simple)
+
+    assert {"name": "foo"} == serializer.dump(Simple(name="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Basic class.",
+        "definitions": {},
+        "properties": {"name": {}},
+        "required": ["name"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    second = serpyco.Serializer(Simple)
+    assert {"name": "foo"} == second.dump(Simple(name="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Basic class.",
+        "definitions": {},
+        "properties": {"name": {}},
+        "required": ["name"],
+        "type": "object",
+    } == second.json_schema()
+
+    serpyco.Serializer.unregister_global_type(str)
+
+    third = serpyco.Serializer(Simple)
+    assert {"name": "bar"} == third.dump(Simple(name="bar"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Basic class.",
+        "definitions": {},
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+        "type": "object",
+    } == second.json_schema()

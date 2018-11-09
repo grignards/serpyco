@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from setuptools import setup, Extension
+from setuptools import Extension, setup
 
 requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
 

@@ -43,7 +43,6 @@ cdef class FieldEncoder(object):
         """
         raise NotImplementedError()
 
-    @property
     def json_schema(self) -> JsonDict:
         """
         Return the JSON schema for this encoder"s handled value type(s).
@@ -165,19 +164,26 @@ class Validator(object):
     Validates a dict/json string against a dataclass definition.
     """
 
-    _custom_schemas: JsonDict = {}
+    _global_types: JsonDict = {}
 
-    def __init__(self, data_class: type, many: bool=False) -> None:
+    def __init__(
+        self,
+        data_class: type,
+        many: bool=False,
+        type_schemas: typing.Dict[type, dict]={}
+    ) -> None:
         """
         Creates a Validator for the given data_class.
         :param data_class dataclass.
         :param many if True, the validator will validate against lists
         of data_class.
+        :param type_schemas type <-> schema mapping
         """
         self._data_class = data_class
         self._many = many
         self._validator: typing.Optional[rapidjson.Validator] = None
-        self._fields = []
+        self._types = type_schemas
+        self._fields: typing.List[typing.Tuple[str, FieldHints]] = []
         for f in dataclasses.fields(data_class):
             hints = f.metadata.get(__name__, FieldHints(dict_key=f.name))
             if hints.dict_key is None:
@@ -211,7 +217,7 @@ class Validator(object):
         return self._create_json_schema()
 
     @classmethod
-    def register_custom_schema(
+    def register_global_type(
         cls,
         type_: type,
         schema: JsonDict
@@ -219,7 +225,14 @@ class Validator(object):
         """
         Can be used to register a custom JSON schema for the given type.
         """
-        cls._custom_schemas[type_] = schema
+        cls._global_types[type_] = schema
+
+    @classmethod
+    def unregister_global_type(cls, type_: type) -> None:
+        """
+        Removes a previously registered schema for the given type.
+        """
+        del cls._global_types[type_]
 
     def _create_json_schema(
         self,
@@ -271,7 +284,7 @@ class Validator(object):
                         if validator._data_class == item_type:
                             break
                     else:
-                        sub = Validator(item_type)
+                        sub = Validator(item_type, type_schemas=self._types)
                         item_schema = sub._create_json_schema(
                             embeddable=True,
                             parent_validators=parent_validators
@@ -315,7 +328,11 @@ class Validator(object):
         field_schema: JsonDict = {"type": "object"}
         required = True
         field_type_name = self._get_field_type_name(field_type)
-        if dataclasses.is_dataclass(field_type):
+        if field_type in self._types:
+            field_schema = self._types[field_type]
+        elif field_type in self._global_types:
+            field_schema = self._global_types[field_type]
+        elif dataclasses.is_dataclass(field_type):
             if field_type == parent_validators[0]._data_class:
                 ref = "#"
             else:
@@ -347,10 +364,10 @@ class Validator(object):
                     member_type = member_types.pop()
                     if member_type in JSON_ENCODABLE_TYPES:
                         field_schema.update(JSON_ENCODABLE_TYPES[member_type])
-                    elif member_type in self._custom_schemas:
-                        field_schema.update(
-                            self._custom_schemas[member_types.pop()]
-                        )
+                    elif member_type in self._types:
+                        field_schema = self._types[member_types.pop()]
+                    elif member_type in self._global_types:
+                        field_schema = self._global_types[member_types.pop()]
                 field_schema["enum"] = values
                 if field_type.__doc__:
                     field_schema["description"] = field_type.__doc__.strip()
@@ -386,8 +403,6 @@ class Validator(object):
                         parent_validators
                     )[0]
                     field_schema["items"] = items
-            elif field_type in self._custom_schemas:
-                field_schema = self._custom_schemas[field_type]
             elif hasattr(field_type, "__supertype__"):  # NewType fields
                 field_schema, _ = self._get_field_schema(
                     field_type.__supertype__,
@@ -421,18 +436,20 @@ cdef class Serializer(object):
     cdef bint _omit_none
     cdef object _validator
     cdef list _parent_serializers
-    _field_encoders = {
+    cdef dict _types
+    _global_types = {
         datetime.datetime: DateTimeFieldEncoder(),
         uuid.UUID: UuidFieldEncoder()
     }
-    for f, e in _field_encoders.items():
-        Validator.register_custom_schema(f, e.json_schema)
+    for f, e in _global_types.items():
+        Validator.register_global_type(f, e.json_schema())
 
     def __init__(
         self,
         data_class: type,
         many: bool=False,
         omit_none: bool=True,
+        type_encoders: typing.Dict[type, FieldEncoder]={},
         _parent_serializers: typing.List["Serializer"]=None
     ):
         """
@@ -440,12 +457,14 @@ cdef class Serializer(object):
         :param data_class data class this serializer will handle
         :param many if True, serializer will handle lists of the data_class
         :param omit_none if False, keep None values in the serialized dicts
+        :type_encoders: encoders to use for given types
         """
         if not dataclasses.is_dataclass(data_class):
             raise BaseSerpycoError(f"{data_class} is not a dataclass")
         self._data_class = data_class
         self._many = many
         self._omit_none = omit_none
+        self._types = type_encoders
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
         type_hints = typing.get_type_hints(data_class)
@@ -459,7 +478,10 @@ cdef class Serializer(object):
             encoder = self._get_encoder(field_type)
             self._fields.append((f.name, hints.dict_key, encoder))
 
-        self._validator = Validator(data_class, many=many)
+        self._validator = Validator(data_class, many=many, type_schemas={
+            type_: encoder.json_schema()
+            for type_, encoder in self._types.items()
+        })
 
     def json_schema(self) -> JsonDict:
         """
@@ -468,7 +490,7 @@ cdef class Serializer(object):
         return self._validator.json_schema()
 
     @classmethod
-    def register_encoder(
+    def register_global_type(
         cls,
         field_type: type,
         encoder: FieldEncoder
@@ -476,8 +498,16 @@ cdef class Serializer(object):
         """
         Registers a encoder/decoder for the given type.
         """
-        cls._field_encoders[field_type] = encoder
-        Validator.register_custom_schema(field_type, encoder.json_schema)
+        cls._global_types[field_type] = encoder
+        Validator.register_global_type(field_type, encoder.json_schema())
+
+    @classmethod
+    def unregister_global_type(cls, field_type: type) -> None:
+        """
+        Removes a previously registered encoder for the given type.
+        """
+        del cls._global_types[field_type]
+        Validator.unregister_global_type(field_type)
 
     @property
     def data_class(self) -> type:
@@ -583,11 +613,11 @@ cdef class Serializer(object):
         return self._data_class(**decoded_data)
 
     def _get_encoder(self, field_type):
-        try:
-            return self._field_encoders[field_type]
-        except KeyError:
-            pass
-        if _issubclass_safe(field_type, enum.Enum):
+        if field_type in self._types:
+            return self._types[field_type]
+        elif field_type in self._global_types:
+            return self._global_types[field_type]
+        elif _issubclass_safe(field_type, enum.Enum):
             # Must be first as enums can inherit from another type
             return EnumFieldEncoder(field_type)
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
@@ -619,7 +649,8 @@ cdef class Serializer(object):
                 serializer = Serializer(
                     field_type,
                     omit_none=self._omit_none,
-                    _parent_serializers=self._parent_serializers
+                    type_encoders=self._types,
+                    _parent_serializers=self._parent_serializers,
                 )
             return DataClassFieldEncoder(serializer)
         raise NoEncoderError(f"No encoder for '{field_type}'")
@@ -794,7 +825,6 @@ cdef class DateTimeFieldEncoder(FieldEncoder):
         else:
             return dateutil.parser.parse(typing.cast(str, value))
 
-    @property
     def json_schema(self) -> JsonDict:
         return {"type": "string", "format": "date-time"}
 
@@ -808,7 +838,6 @@ cdef class UuidFieldEncoder(FieldEncoder):
     cpdef inline load(self, value):
         return uuid.UUID(value)
 
-    @property
     def json_schema(self):
         return {"type": "string", "format": "uuid"}
 
