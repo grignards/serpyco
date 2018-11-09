@@ -344,6 +344,18 @@ def test_unit__tuple__ok__nominal_case() -> None:
     )
 
 
+def test_unit__set__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithSet(object):
+        """Set test class"""
+
+        set_: typing.Set[str]
+
+    serializer = serpyco.Serializer(WithSet)
+
+    assert WithSet(set_={"foo", "bar"}) == serializer.load({"set_": ["foo", "bar"]})
+
+
 def test_unit__string_field__ok__nominal_case() -> None:
     @dataclasses.dataclass
     class WithStringField(object):

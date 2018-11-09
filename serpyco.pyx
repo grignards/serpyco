@@ -279,9 +279,9 @@ class Validator(object):
                 item_types = [field_type.__args__[0]]
             elif _is_union(field_type):
                 item_types = field_type.__args__
-            elif _is_generic(field_type, (typing.Dict, typing.Mapping)):
+            elif _is_generic(field_type, typing.Mapping):
                 item_types = [field_type.__args__[1]]
-            elif _is_generic(field_type, (typing.Sequence, typing.List)):
+            elif _is_generic(field_type, typing.Iterable):
                 item_types = [field_type.__args__[0]]
 
             for item_type in item_types:
@@ -406,7 +406,7 @@ class Validator(object):
                         parent_validators
                     )[0]
                     field_schema["additionalProperties"] = add
-            elif _is_generic(field_type, typing.Sequence):
+            elif _is_generic(field_type, typing.Iterable):
                 field_schema = {"type": "array"}
                 if field_type.__args__[0] is not typing.Any:
                     items = self._get_field_schema(
@@ -657,9 +657,9 @@ cdef class Serializer(object):
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
-        elif _is_generic(field_type, typing.Sequence):
+        elif _is_generic(field_type, typing.Iterable):
             item_encoder = self._get_encoder(field_type.__args__[0])
-            return ListFieldEncoder(item_encoder, field_type)
+            return IterableFieldEncoder(item_encoder, field_type)
         elif dataclasses.is_dataclass(field_type):
             # See if one of our "ancestors" handles this type.
             # This avoids infinite recursion if data_classes establish a cycle
@@ -751,32 +751,33 @@ cdef class DataClassFieldEncoder(FieldEncoder):
 
 
 @cython.final
-cdef class ListFieldEncoder(FieldEncoder):
+cdef class IterableFieldEncoder(FieldEncoder):
     cdef FieldEncoder _item_encoder
-    cdef object _sequence_type
+    cdef object _iterable_type
 
-    _sequence_types_mapping = {
+    _iterable_types_mapping = {
         typing.Tuple: tuple,
         typing.List: list,
+        typing.Set: set,
     }
 
     def __init__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
 
-        self._sequence_type = self._sequence_types_mapping.get(
+        self._iterable_type = self._iterable_types_mapping.get(
             sequence_type.__origin__,
             sequence_type.__origin__
         )
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
-            return self._sequence_type(map(self._item_encoder.load, value))
-        return self._sequence_type(value)
+            return self._iterable_type(map(self._item_encoder.load, value))
+        return self._iterable_type(value)
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            return self._sequence_type(map(self._item_encoder.dump, value))
-        return self._sequence_type(value)
+            return self._iterable_type(map(self._item_encoder.dump, value))
+        return self._iterable_type(value)
         
 
 
