@@ -1,5 +1,13 @@
 # Serpyco changelog
 
+## v0.7
+
+- fix json schema caching in Validator
+- fix `"type": "object"` added in custom schemas
+- support per instance custom encoders and schemas
+- support ignoring of fields (via `serpyco.field(ignore=True)`)
+- support partial serialization (via `only` parameter)
+
 ## v0.6
 
 - support additional validation constraints for strings and numbers (`string_field()` and `number_field()`)
