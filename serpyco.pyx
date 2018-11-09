@@ -387,7 +387,7 @@ class Validator(object):
                     )[0]
                     field_schema["items"] = items
             elif field_type in self._custom_schemas:
-                field_schema.update(self._custom_schemas[field_type])
+                field_schema = self._custom_schemas[field_type]
             elif hasattr(field_type, "__supertype__"):  # NewType fields
                 field_schema, _ = self._get_field_schema(
                     field_type.__supertype__,
