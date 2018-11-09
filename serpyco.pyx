@@ -167,7 +167,7 @@ class Validator(object):
 
     _custom_schemas: JsonDict = {}
 
-    def __init__(self, data_class: typing.ClassVar, many: bool=False) -> None:
+    def __init__(self, data_class: type, many: bool=False) -> None:
         """
         Creates a Validator for the given data_class.
         :param data_class dataclass.
@@ -213,7 +213,7 @@ class Validator(object):
     @classmethod
     def register_custom_schema(
         cls,
-        type_: typing.ClassVar,
+        type_: type,
         schema: JsonDict
     ) -> None:
         """
@@ -430,7 +430,7 @@ cdef class Serializer(object):
 
     def __init__(
         self,
-        data_class: typing.ClassVar,
+        data_class: type,
         many: bool=False,
         omit_none: bool=True,
         _parent_serializers: typing.List["Serializer"]=None
@@ -470,7 +470,7 @@ cdef class Serializer(object):
     @classmethod
     def register_encoder(
         cls,
-        field_type: typing.ClassVar,
+        field_type: type,
         encoder: FieldEncoder
     ) -> None:
         """
@@ -480,7 +480,7 @@ cdef class Serializer(object):
         Validator.register_custom_schema(field_type, encoder.json_schema)
 
     @property
-    def data_class(self) -> typing.ClassVar:
+    def data_class(self) -> type:
         """
         Returns the dataclass used to construct this serializer.
         """
@@ -820,7 +820,7 @@ cdef class UnionFieldEncoder(FieldEncoder):
 
     def __init__(
         self,
-        type_encoders: typing.List[typing.Tuple[typing.ClassVar, FieldEncoder]]
+        type_encoders: typing.List[typing.Tuple[type, FieldEncoder]]
     ):
         self._type_encoders = type_encoders
 
