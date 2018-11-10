@@ -16,7 +16,6 @@ setup(
         "setuptools>=18.0",
         "cython",
     ],
-    test_requires=["pytest", "pytest-benchmark"],
     install_requires=requires,
     tests_require=["pytest", "flake8"],
     license="MIT",

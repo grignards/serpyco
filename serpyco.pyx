@@ -617,8 +617,10 @@ cdef class Serializer(object):
 
         :param validate: if True, the dumped data will be validated.
         """
+        cdef list objs
         if self._many:
-            data = map(self._dump, obj)
+            objs = obj
+            data = [self._dump(o) for o in objs]
         else:
             data = self._dump(obj)
         if validate:
@@ -637,11 +639,13 @@ cdef class Serializer(object):
         :param validate: if True, the data will be validated before 
             creating objects
         """
+        cdef datas
         if validate:
             self._validator.validate(data)
 
         if self._many:
-            return map(self._load, data)
+            datas = data
+            return [self._load(d) for d in datas]
         return self._load(data)
 
     cpdef inline str dump_json(
@@ -654,8 +658,10 @@ cdef class Serializer(object):
 
         :param validate: if True, the dumped data will be validated
         """
+        cdef list objs
         if self._many:
-            data = map(self._dump, obj)
+            objs = obj
+            data = [self._dump(o) for o in objs]
         else:
             data = self._dump(obj)
 
@@ -673,11 +679,13 @@ cdef class Serializer(object):
         :param validate: if True, the JSON will be validated before
             creating objects
         """
+        cdef list datas
         if validate:
             self._validator.validate_json(js)
         data = rapidjson.loads(js)
         if self._many:
-            return map(self._load, data)
+            datas = data
+            return [self._load(d) for d in datas]
         return self._load(data)
 
     cdef inline dict _dump(self, object obj):
