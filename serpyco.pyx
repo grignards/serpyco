@@ -1,6 +1,8 @@
 # cython: boundscheck=False
 # cython: language_level=3
 # cython: embedsignature=True
+# cython: wraparound=False
+# cython: nonecheck=False
 
 import datetime
 import enum
@@ -359,12 +361,13 @@ class Validator(object):
             if _is_optional(field_type):
                 field_schema = self._get_field_schema(
                     field_type.__args__[0],
-                    parent_validators
+                    parent_validators,
+                    hints
                 )[0]
                 required = False
             elif _is_union(field_type):
                 schemas = [
-                    self._get_field_schema(item_type, parent_validators)[0]
+                    self._get_field_schema(item_type, parent_validators, hints)[0]
                     for item_type in field_type.__args__
                 ]
                 field_schema["oneOf"] = schemas
@@ -407,7 +410,8 @@ class Validator(object):
                 if field_type.__args__[1] is not typing.Any:
                     add = self._get_field_schema(
                         field_type.__args__[1],
-                        parent_validators
+                        parent_validators,
+                        hints
                     )[0]
                     field_schema["additionalProperties"] = add
             elif _is_generic(field_type, typing.Iterable):
@@ -415,13 +419,15 @@ class Validator(object):
                 if field_type.__args__[0] is not typing.Any:
                     items = self._get_field_schema(
                         field_type.__args__[0],
-                        parent_validators
+                        parent_validators,
+                        hints
                     )[0]
                     field_schema["items"] = items
             elif hasattr(field_type, "__supertype__"):  # NewType fields
                 field_schema, _ = self._get_field_schema(
                     field_type.__supertype__,
-                    parent_validators
+                    parent_validators,
+                    hints
                 )
             else:
                 msg = f"Unable to create schema for '{field_type}'"
@@ -437,6 +443,17 @@ class Validator(object):
                 return field_type._name
             except AttributeError:
                 return None
+
+
+cdef class SField:
+    cpdef str field_name
+    cpdef str dict_key
+    cpdef FieldEncoder encoder
+
+    def __init__(self, str field_name, str dict_key, FieldEncoder encoder):
+        self.field_name = field_name
+        self.dict_key = dict_key
+        self.encoder = encoder
 
 
 @cython.final
@@ -496,7 +513,7 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type)
-            self._fields.append((f.name, hints.dict_key, encoder))
+            self._fields.append(SField(f.name, hints.dict_key, encoder))
 
         self._validator = Validator(
             dataclass,
@@ -543,7 +560,7 @@ cdef class Serializer(object):
 
     cpdef inline dump(
         self,
-        obj: typing.Union[object, typing.Iterable],
+        obj: typing.Union[object, typing.Iterable[object]],
         validate: bool=False
     ):
         """
@@ -553,7 +570,7 @@ cdef class Serializer(object):
         :param validate: if True, the dumped data will be validated.
         """
         if self._many:
-            data = [self._dump(o) for o in obj]
+            data = map(self._dump, obj)
         else:
             data = self._dump(obj)
         if validate:
@@ -562,7 +579,7 @@ cdef class Serializer(object):
 
     cpdef inline load(
         self,
-        data: typing.Union[dict, typing.Iterable],
+        data: typing.Union[dict, typing.Iterable[dict]],
         validate: bool=True
     ):
         """
@@ -576,12 +593,12 @@ cdef class Serializer(object):
             self._validator.validate(data)
 
         if self._many:
-            return [self._load(d) for d in data]
+            return map(self._load, data)
         return self._load(data)
 
     cpdef inline str dump_json(
         self,
-        obj: typing.Union[object, typing.Iterable],
+        obj: typing.Union[object, typing.Iterable[object]],
         validate: bool=False
     ):
         """
@@ -590,7 +607,7 @@ cdef class Serializer(object):
         :param validate: if True, the dumped data will be validated
         """
         if self._many:
-            data = [self._dump(o) for o in obj]
+            data = map(self._dump, obj)
         else:
             data = self._dump(obj)
 
@@ -600,7 +617,7 @@ cdef class Serializer(object):
 
         return js
 
-    cpdef inline object load_json(self, js: str, validate: bool=True):
+    cpdef inline load_json(self, js: str, validate: bool=True):
         """
         Loads the given JSON string and returns object(s) of this serializer's
         dataclass.
@@ -612,33 +629,31 @@ cdef class Serializer(object):
             self._validator.validate_json(js)
         data = rapidjson.loads(js)
         if self._many:
-            return [self._load(value) for value in data]
+            return map(self._load, data)
         return self._load(data)
 
-    cdef inline dict _dump(self, obj: typing.Any):
-        data = {}
-        for field_name, dict_key, encoder in self._fields:
-            value = getattr(obj, field_name)
-            if value is None:
+    cdef inline dict _dump(self, object obj):
+        cdef dict data = {}
+        cdef SField sfield
+        for sfield in self._fields:
+            encoded = getattr(obj, sfield.field_name)
+            if encoded is None:
                 if self._omit_none:
                     continue
-                else:
-                    encoded = None
-            elif encoder:
-                encoded = encoder.dump(value)
-            else:
-                encoded = value
-            data[dict_key] = encoded
+            elif sfield.encoder:
+                encoded = sfield.encoder.dump(encoded)
+            data[sfield.dict_key] = encoded
         return data
 
-    cdef inline object _load(self, data: typing.Any):
-        decoded_data = {}
-        for field_name, dict_key, encoder in self._fields:
-            encoded_value = data.get(dict_key)
-            if encoder:
-                decoded_data[field_name] = encoder.load(encoded_value)
-            else:
-                decoded_data[field_name] = encoded_value
+    cdef inline object _load(self, dict data):
+        cdef dict decoded_data = {}
+        cdef SField sfield
+        get_data = data.get
+        for sfield in self._fields:
+            decoded = get_data(sfield.dict_key)
+            if sfield.encoder:
+                decoded = sfield.encoder.load(decoded)
+            decoded_data[sfield.field_name] = decoded
         return self._dataclass(**decoded_data)
 
     def _get_encoder(self, field_type):
