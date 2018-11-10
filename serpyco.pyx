@@ -450,16 +450,16 @@ class Validator(object):
                 return None
 
     @staticmethod
-    def _get_json_path(path: str, d):
-        components = path.split("/")[1:]
+    def _get_value(json_path: str, data):
+        components = json_path.split("/")[1:]
         for component in components:
-            if isinstance(d, typing.Mapping):
-                d = d[component]
-            elif isinstance(d, typing.Sequence):
-                d = d[int(component)]
+            if isinstance(data, typing.Mapping):
+                data = data[component]
+            elif isinstance(data, typing.Sequence):
+                data = data[int(component)]
             else:
-                raise ValueError()
-        return d
+                raise ValueError("Got a data which is not a list or dict")
+        return data
 
     def _get_error_message(
         self,
@@ -468,11 +468,14 @@ class Validator(object):
     ) -> str:
         schema = self._create_json_schema()
         schema_part_name, schema_path, data_path = exc.args
-        d = self._get_json_path(data_path, data)
-        schema_part = self._get_json_path(schema_path, schema)[schema_part_name]
+        d = self._get_value(data_path, data)
+        schema_part = self._get_value(schema_path, schema)[schema_part_name]
+
+        # transform the json path to something more python-like
         data_path = data_path.replace("#", "data")
         data_path = re.sub(r"/(\d+)(/|$)", r"[\g<1>]", data_path)
         data_path = re.sub(r"/(\w+)(/|$)?", r'["\g<1>"]', data_path)
+
         if "type" == schema_part_name:
             data_type = d.__class__.__name__
             msg = f"has type {data_type}, expected {schema_part}"
@@ -484,6 +487,12 @@ class Validator(object):
             msg = f"number must be <= {schema_part}, got {d}"
         elif "minimum" == schema_part_name:
             msg = f"number must be >= {schema_part}, got {d}"
+        elif "maxLength" == schema_part_name:
+            le = len(d)
+            msg = f'string length must be <= {schema_part}, got "{d}" whose length is {le}'
+        elif "minLength" == schema_part_name:
+            le = len(d)
+            msg = f'string length must be >= {schema_part}, got "{d}" whose length is {le}'
         elif "required" == schema_part_name:
             props = set(schema_part) - set(d.keys())
             props = map(lambda s: f'"{s}"', props)
