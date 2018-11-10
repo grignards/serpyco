@@ -6,6 +6,7 @@
 
 import datetime
 import enum
+import re
 import typing
 import uuid
 
@@ -28,7 +29,9 @@ class NoEncoderError(BaseSerpycoError):
 
 
 class ValidationError(BaseSerpycoError):
-    pass
+    def __init__(self, msg: str, args: typing.List[str]=None):
+        super().__init__(msg)
+        self.args = args or []
 
 
 cdef class FieldEncoder(object):
@@ -225,7 +228,9 @@ class Validator(object):
         try:
             self._validator(json_string)
         except rapidjson.ValidationError as exc:
-            raise ValidationError(str(exc))
+            data = rapidjson.loads(json_string)
+            msg = self._get_error_message(exc, data)
+            raise ValidationError(msg, exc.args)
 
     def json_schema(self) -> JsonDict:
         """
@@ -444,6 +449,49 @@ class Validator(object):
             except AttributeError:
                 return None
 
+    @staticmethod
+    def _get_json_path(path: str, d):
+        components = path.split("/")[1:]
+        for component in components:
+            if isinstance(d, typing.Mapping):
+                d = d[component]
+            elif isinstance(d, typing.Sequence):
+                d = d[int(component)]
+            else:
+                raise ValueError()
+        return d
+
+    def _get_error_message(
+        self,
+        exc: rapidjson.ValidationError,
+        data: dict
+    ) -> str:
+        schema = self._create_json_schema()
+        schema_part_name, schema_path, data_path = exc.args
+        d = self._get_json_path(data_path, data)
+        schema_part = self._get_json_path(schema_path, schema)[schema_part_name]
+        data_path = data_path.replace("#", "data")
+        data_path = re.sub(r"/(\d+)(/|$)", r"[\g<1>]", data_path)
+        data_path = re.sub(r"/(\w+)(/|$)?", r'["\g<1>"]', data_path)
+        if "type" == schema_part_name:
+            data_type = d.__class__.__name__
+            msg = f"has type {data_type}, expected {schema_part}"
+        elif "pattern" == schema_part_name:
+            msg = f'string doesn\'t match pattern, got "{d}", expected "{schema_part}"'
+        elif "format" == schema_part_name:
+            msg = f'string doesn\'t match defined format, got "{d}", expected "{schema_part}"'
+        elif "maximum" == schema_part_name:
+            msg = f"number must be <= {schema_part}, got {d}"
+        elif "minimum" == schema_part_name:
+            msg = f"number must be >= {schema_part}, got {d}"
+        elif "required" == schema_part_name:
+            props = set(schema_part) - set(d.keys())
+            props = map(lambda s: f'"{s}"', props)
+            missing = ", ".join(props)
+            msg = f"is missing required properties {missing}"
+        else:
+            msg = f"validation error {exc}"
+        return f"{data_path}: {msg}."
 
 cdef class SField:
     cpdef str field_name
@@ -651,7 +699,10 @@ cdef class Serializer(object):
         get_data = data.get
         for sfield in self._fields:
             decoded = get_data(sfield.dict_key)
-            if sfield.encoder:
+            if decoded is None:
+                if self._omit_none:
+                    continue
+            elif sfield.encoder:
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
         return self._dataclass(**decoded_data)
