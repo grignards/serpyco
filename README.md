@@ -58,10 +58,3 @@ Serialization is optimized using Cython (but I'm a beginner regarding this, so M
     >>> serializer.dump({'x': 3.14, 'y': 'wrong'}, validate=True)
     ValidationError('type', '#/properties/y', '#/y')
 ```
-
-## TODO
-
-- improve optimization ?
-- add the package to the benchmarked solutions of https://github.com/voidfiles/python-serialization-benchmark
-- method/function fields ??
-- improve validation error messages
