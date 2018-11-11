@@ -831,7 +831,7 @@ JSON_ENCODABLE_TYPES = {
 JsonEncodable = typing.Union[int, float, str, bool]
 
 
-def _issubclass_safe(field_type: type, types: typing.List[types]) -> bool:
+def _issubclass_safe(field_type: type, types: typing.List[type]) -> bool:
     try:
         return issubclass(field_type, types)
     except (TypeError, AttributeError):
