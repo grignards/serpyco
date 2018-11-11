@@ -1,5 +1,11 @@
 # Serpyco changelog
 
+## v0.8
+
+- support typing.Set[] fields
+- improve validation error messages
+- support getter method for fields
+
 ## v0.7
 
 - fix json schema caching in Validator
