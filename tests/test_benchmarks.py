@@ -52,25 +52,25 @@ validator.validate_json(test_json)
 serializer.load(test_dict)
 
 
-def test_benchmark_dump(benchmark):
+def test_dump(benchmark):
     benchmark(serializer.dump, test_object)
 
 
-def test_benchmark_dump_json(benchmark):
+def test_dump_json(benchmark):
     benchmark(serializer.dump_json, test_object)
 
 
-def test_load_benchmark_load(benchmark):
+def test_load(benchmark):
     benchmark(serializer.load, test_dict, validate=False)
 
 
-def test_benchmark_load_json(benchmark):
+def test_load_json(benchmark):
     benchmark(serializer.load_json, test_json, validate=False)
 
 
-def test_benchmark_validate(benchmark):
+def test_validate(benchmark):
     benchmark(validator.validate, test_dict)
 
 
-def test_benchmark_validate_json(benchmark):
+def test_validate_json(benchmark):
     benchmark(validator.validate_json, test_json)
