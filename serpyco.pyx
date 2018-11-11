@@ -67,20 +67,28 @@ class StringFormat(str, enum.Enum):
     URI = "uri"
 
 
-def field(dict_key: str=None, ignore=False, *args, **kwargs) -> dataclasses.Field:
+def field(
+    dict_key: str=None,
+    ignore: bool=False,
+    getter: typing.Callable=None,
+    *args,
+    **kwargs
+) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on dataclass fields.
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
 
-    :param dict_key: key of the field in the output dictionaries.
-    :param ignore: if True, the field won't be considered by serpico.
+    :param dict_key: key of the field in the dumped dictionary
+    :param ignore: if True, the field won't be considered by serpico
+    :param getter: callable used to get values of this field.
+        Must take one object argument
     """
     metadata = kwargs.get("metadata", {})
-    hints = FieldHints(dict_key=dict_key, ignore=ignore)
-    
+    hints = FieldHints(dict_key=dict_key, ignore=ignore, getter=getter)
+
     for attr in vars(hints).keys():
-        if attr not in ["dict_key", "ignore"]:
+        if attr not in ["dict_key", "ignore", "getter"]:
             setattr(hints, attr, kwargs.pop(attr, None))
 
     metadata[__name__] = hints
@@ -91,27 +99,33 @@ def field(dict_key: str=None, ignore=False, *args, **kwargs) -> dataclasses.Fiel
 def string_field(
     dict_key: typing.Optional[str]=None,
     ignore: bool=False,
+    getter: typing.Callable=None,
     format_: typing.Optional[StringFormat]=None,
     pattern: typing.Optional[str]=None,
     min_length: typing.Optional[int]=None,
     max_length: typing.Optional[int]=None,
     *args,
     **kwargs,
-)  -> dataclasses.Field:
+) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints for a str dataclass field.
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
 
-    :param dict_key: key of the field in the output dictionaries.
+    :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, this field won't be considered by serpico
+    :param getter: callable used to get values of this field.
+        Must take one object argument
     :param format_: additional semantic validation for strings
-    :param pattern: restricts the strings of this field to the given regular expression
+    :param pattern: restricts the strings of this field to the
+        given regular expression
     :param min_length: minimum string length
     :param max_length: maximum string length
     """
     return field(
         dict_key,
+        ignore,
+        getter,
         *args,
         format_=format_,
         pattern=pattern,
@@ -124,6 +138,7 @@ def string_field(
 def number_field(
     dict_key: typing.Optional[str]=None,
     ignore: bool=False,
+    getter: typing.Callable=None,
     minimum: typing.Optional[int]=None,
     maximum: typing.Optional[int]=None,
     *args,
@@ -135,13 +150,17 @@ def number_field(
     Call it at field declaration as you would do with dataclass.field().
     Additional parameters will be passed verbatim to dataclass.field().
 
-    :param dict_key: key of the field in the output dictionaries.
-    :param ignore: if True, this field won't be considered by serpico.
+    :param dict_key: key of the field in the dumped dictionary
+    :param ignore: if True, this field won't be considered by serpico
+    :param getter: callable used to get values of this field.
+        Must take one object argument
     :param minimum: minimum allowed value (inclusive)
-    :param maximum: maximum allowed value (inclusive
+    :param maximum: maximum allowed value (inclusive)
     """
     return field(
         dict_key,
+        ignore,
+        getter,
         *args,
         minimum=minimum,
         maximum=maximum,
@@ -154,6 +173,7 @@ class FieldHints(object):
         self,
         dict_key: typing.Optional[str],
         ignore: bool=False,
+        getter: typing.Callable=None,
         format_: typing.Optional[str]=None,
         pattern: typing.Optional[str]=None,
         min_length: typing.Optional[int]=None,
@@ -163,6 +183,7 @@ class FieldHints(object):
     ) -> None:
         self.dict_key = dict_key
         self.ignore = ignore
+        self.getter = getter
         self.format_ = format_
         self.pattern = pattern
         self.min_length = min_length
@@ -372,7 +393,11 @@ class Validator(object):
                 required = False
             elif _is_union(field_type):
                 schemas = [
-                    self._get_field_schema(item_type, parent_validators, hints)[0]
+                    self._get_field_schema(
+                        item_type,
+                        parent_validators,
+                        hints
+                    )[0]
                     for item_type in field_type.__args__
                 ]
                 field_schema["oneOf"] = schemas
@@ -480,19 +505,29 @@ class Validator(object):
             data_type = d.__class__.__name__
             msg = f"has type {data_type}, expected {schema_part}"
         elif "pattern" == schema_part_name:
-            msg = f'string doesn\'t match pattern, got "{d}", expected "{schema_part}"'
+            msg = f'''string doesn\'t match pattern, got "{d}",'
+                expected "{schema_part}"'''
         elif "format" == schema_part_name:
-            msg = f'string doesn\'t match defined format, got "{d}", expected "{schema_part}"'
+            msg = (
+                f'string doesn\'t match defined format, got "{d}",'
+                f' expected "{schema_part}"'
+            )
         elif "maximum" == schema_part_name:
             msg = f"number must be <= {schema_part}, got {d}"
         elif "minimum" == schema_part_name:
             msg = f"number must be >= {schema_part}, got {d}"
         elif "maxLength" == schema_part_name:
             le = len(d)
-            msg = f'string length must be <= {schema_part}, got "{d}" whose length is {le}'
+            msg = (
+                f'string length must be <= {schema_part}, got "{d}"'
+                f' whose length is {le}'
+            )
         elif "minLength" == schema_part_name:
             le = len(d)
-            msg = f'string length must be >= {schema_part}, got "{d}" whose length is {le}'
+            msg = (
+                f'string length must be >= {schema_part}, got "{d}"'
+                f' whose length is {le}'
+            )
         elif "required" == schema_part_name:
             props = set(schema_part) - set(d.keys())
             props = map(lambda s: f'"{s}"', props)
@@ -502,15 +537,24 @@ class Validator(object):
             msg = f"validation error {exc}"
         return f"{data_path}: {msg}."
 
-cdef class SField:
-    cpdef str field_name
-    cpdef str dict_key
-    cpdef FieldEncoder encoder
 
-    def __init__(self, str field_name, str dict_key, FieldEncoder encoder):
+cdef class SField:
+    cdef str field_name
+    cdef str dict_key
+    cdef FieldEncoder encoder
+    cdef object getter
+
+    def __init__(
+        self,
+        str field_name,
+        str dict_key,
+        FieldEncoder encoder,
+        object getter=None
+    ):
         self.field_name = field_name
         self.dict_key = dict_key
         self.encoder = encoder
+        self.getter = getter
 
 
 @cython.final
@@ -549,7 +593,8 @@ cdef class Serializer(object):
         :param many: if True, serializer will handle lists of the dataclass
         :param omit_none: if False, keep None values in the serialized dicts
         :param type_encoders: encoders to use for given types
-        :param only: list of fields to serialize. If None, all fields are serialized.
+        :param only: list of fields to serialize.
+            If None, all fields are serialized
         """
         if not dataclasses.is_dataclass(dataclass):
             raise BaseSerpycoError(f"{dataclass} is not a dataclass")
@@ -570,12 +615,17 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type)
-            self._fields.append(SField(f.name, hints.dict_key, encoder))
+            self._fields.append(SField(
+                f.name,
+                hints.dict_key,
+                encoder,
+                hints.getter
+            ))
 
         self._validator = Validator(
             dataclass,
             many=many,
-            only=only, 
+            only=only,
             type_schemas={
                 type_: encoder.json_schema()
                 for type_, encoder in self._types.items()
@@ -608,7 +658,6 @@ cdef class Serializer(object):
         del cls._global_types[field_type]
         Validator.unregister_global_type(field_type)
 
-    
     def dataclass(self) -> type:
         """
         Returns the dataclass used to construct this serializer.
@@ -645,7 +694,7 @@ cdef class Serializer(object):
         Loads the given data and returns object(s) of this serializer's
         dataclass.
 
-        :param validate: if True, the data will be validated before 
+        :param validate: if True, the data will be validated before
             creating objects
         """
         cdef datas
@@ -701,7 +750,10 @@ cdef class Serializer(object):
         cdef dict data = {}
         cdef SField sfield
         for sfield in self._fields:
-            encoded = getattr(obj, sfield.field_name)
+            if sfield.getter:
+                encoded = sfield.getter(obj)
+            else:
+                encoded = getattr(obj, sfield.field_name)
             if encoded is None:
                 if self._omit_none:
                     continue
@@ -779,20 +831,21 @@ JSON_ENCODABLE_TYPES = {
 JsonEncodable = typing.Union[int, float, str, bool]
 
 
-def _issubclass_safe(field_type, classes) -> bool:
+def _issubclass_safe(field_type: type, types: typing.List[types]) -> bool:
     try:
-        return issubclass(field_type, classes)
+        return issubclass(field_type, types)
     except (TypeError, AttributeError):
         return False
 
 
-def _is_generic(field_type, types) -> bool:
+def _is_generic(field_type: type, types: typing.List[type]) -> bool:
     try:
         return issubclass(field_type.__origin__, types)
     except (TypeError, AttributeError):
         return False
 
-def _is_union(field_type) -> bool:
+
+def _is_union(field_type: type) -> bool:
     try:
         return field_type.__origin__ is typing.Union
     except AttributeError:
@@ -801,9 +854,9 @@ def _is_union(field_type) -> bool:
 
 def _is_optional(field_type) -> bool:
     return (
-        _is_union(field_type) and
-        2 == len(field_type.__args__) and
-        issubclass(field_type.__args__[1], type(None))
+        _is_union(field_type)
+        and 2 == len(field_type.__args__)
+        and issubclass(field_type.__args__[1], type(None))
     )
 
 
@@ -869,7 +922,6 @@ cdef class IterableFieldEncoder(FieldEncoder):
         if self._item_encoder:
             return self._iterable_type(map(self._item_encoder.dump, value))
         return self._iterable_type(value)
-        
 
 
 @cython.final
