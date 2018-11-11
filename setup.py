@@ -15,9 +15,10 @@ setup(
         # Setuptools 18.0 properly handles Cython extensions.
         "setuptools>=18.0",
         "cython",
+        "pytest-runner",
     ],
     install_requires=requires,
-    tests_require=["pytest", "flake8", "pytest-benchmark"],
+    tests_require=["pytest", "flake8", "pytest-benchmark", "dataslots"],
     license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",

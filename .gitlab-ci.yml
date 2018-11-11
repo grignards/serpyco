@@ -3,13 +3,11 @@ tests-3.6:
   script:
     - apt-get update -q -y
     - pip install -r requirements.txt
-    - python setup.py install
-    - pytest
+    - python setup.py test
 
 tests-3.7:
   image: python:3.7
   script:
     - apt-get update -q -y
     - pip install -r requirements.txt
-    - python setup.py install
-    - pytest
+    - python setup.py test
