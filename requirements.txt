@@ -1,3 +1,4 @@
 Cython==0.29
+dataslots
 pytest
 pytest-benchmark
