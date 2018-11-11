@@ -17,7 +17,7 @@ setup(
         "cython",
     ],
     install_requires=requires,
-    tests_require=["pytest", "flake8"],
+    tests_require=["pytest", "flake8", "pytest-benchmark"],
     license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",
