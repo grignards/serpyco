@@ -30,8 +30,7 @@ class NoEncoderError(BaseSerpycoError):
 
 class ValidationError(BaseSerpycoError):
     def __init__(self, msg: str, args: typing.List[str]=None):
-        super().__init__(msg)
-        self.args = args or []
+        super().__init__(msg, args)
 
 
 cdef class FieldEncoder(object):
@@ -385,11 +384,18 @@ class Validator(object):
             }
         else:
             if _is_optional(field_type):
-                field_schema = self._get_field_schema(
-                    field_type.__args__[0],
-                    parent_validators,
-                    hints
-                )[0]
+                field_schema = {
+                    "anyOf": [
+                        self._get_field_schema(
+                            field_type.__args__[0],
+                            parent_validators,
+                            hints
+                        )[0],
+                        {
+                             "type": "null"
+                        },
+                    ]
+                }
                 required = False
             elif _is_union(field_type):
                 schemas = [

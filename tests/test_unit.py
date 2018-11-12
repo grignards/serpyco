@@ -192,7 +192,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "nested": {"$ref": "#/definitions/Simple"},
             "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
             "number": {"type": "number"},
-            "optional": {"type": "integer"},
+            "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
             "string": {"type": "string"},
         },
         "required": [
@@ -242,7 +242,7 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "nested": {"$ref": "#/definitions/Simple"},
                 "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
                 "number": {"type": "number"},
-                "optional": {"type": "integer"},
+                "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
                 "string": {"type": "string"},
             },
             "required": [
