@@ -1,14 +1,19 @@
 # Serpyco changelog
 
+## v0.9
+
+- fix `Optional` fields validation (`None` is a valid value)
+- custom message for `enum` validation errors
+
 ## v0.8
 
-- support typing.Set[] fields
+- support `typing.Set[]` fields
 - improve validation error messages
 - support getter method for fields
 
 ## v0.7
 
-- fix json schema caching in Validator
+- fix json schema caching in `Validator`
 - fix `"type": "object"` added in custom schemas
 - support per instance custom encoders and schemas
 - support ignoring of fields (via `serpyco.field(ignore=True)`)
@@ -21,7 +26,7 @@
 
 ## v0.5
 
-- support typing.Tuple[] fields
+- support `typing.Tuple[]` fields
 - simpler schemas for integers/numbers
 - remove `"type": "object"` from `$ref` schemas
 
@@ -31,12 +36,12 @@
 
 ## v0.3
 
-- support typing.Union[] fields
+- support `typing.Union[]` fields
 
 ## v0.2
 
 - support cycles in fields definition
-- split validation and serialzation code in two classes: Validation and Serializer
+- split validation and serialization code in two classes: `Validation` and `Serializer`
 
 ## v0.1
 

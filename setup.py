@@ -6,7 +6,7 @@ requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'
 
 setup(
     name="serpyco",
-    version="0.8",
+    version="0.9",
     description="Fast serialization of dataclasses using Cython",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
