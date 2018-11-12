@@ -1,60 +1,65 @@
-# Serpyco: a serializer for python dataclasses
+============================================
+Serpyco: a serializer for python dataclasses
+============================================
 
-Fast serializer for Python 3.7 dataclasses. Python 3.6 is supported through the dataclasses backport.
-Also provides data validation through JSON Schema generation and rapidjson validator.
+What is Serpyco ?
+-----------------
 
-JSON schema generation code has been taken from [dataclasses-jsonschema](https://github.com/s-knibbs/dataclasses-jsonschema).
+Serpyco is a serialization library for `Python 3.6+ dataclasses <https://docs.python.org/3/library/dataclasses.html>`_ that works just by defining your dataclasses:
 
-Serialization is optimized using Cython (but I'm a beginner regarding this, so MR are welcomed).
+.. code-block:: python
 
-## Examples
+    import dataclasses
+    import typing
 
-```python
+    import serpyco
 
-    from dataclasses import dataclass
-
-    from serpyco import Serializer
-
-
-    @dataclass
-    class Point(object):
-        x: float
-        y: float
+    @dataclasses.dataclass
+    class Example(object):
+        name: str
+        num: int
+        tags: typing.List[str]
 
 
-    serializer = Serializer(Point)
-```
+    serializer = serpyco.Serializer(Example)
 
-### Generate the schema
+    result = serializer.dump(Example(name="foo", num=2, tags=["hello", "world"]))
+    print(result)
 
-```python
+    {'name': 'foo', 'num': 2, 'tags': ['hello', 'world']}
 
-    >>> pprint(serializer.json_schema())
-    {'$schema': 'http://json-schema.org/draft-04/schema#',
-    'definitions': {},
-    'description': 'Point(x:float, y:float)',
-    'properties': {'x': {'type': 'number'},
-                    'y': {'type': 'number'}},
-    'required': ['x', 'y'],
-    'type': 'object'}
-```
+Serpyco works by analysing the dataclass fields and can recognize many types : `List`, `Set`, `Tuple`, `Optional`, `Union`... You can also embed other dataclasses in a definition.
 
-### Deserialise data
+The main use-case for Serpyco is to serialize objects for an API, but it can be helpful whenever you need to transform objects to/from builtin Python types.
 
-```python
+.. Detailed documentation and examples can be found at `https://serpyco.readthedocs.org`_.
 
-    >>> serializer.load({'x': 3.14, 'y': 1.5})
-    Point(x=3.14, y=1.5)
-    >>> serializer.load({'x': 3.14, 'y': 'wrong'})
-    ValidationError('type', '#/properties/y', '#/y')
-```
+Features
+--------
 
-### Serialize data
+- Serialization and unserialization of dataclasses
+- Validation of input/output data
+- Very fast
+- Extensible through custom encoders
 
-```python
+Installing
+----------
 
-    >>> serializer.dump(Point(x=3.14, y=1.5))
-    {'x': 3.14, 'y': 1.5}
-    >>> serializer.dump({'x': 3.14, 'y': 'wrong'}, validate=True)
-    ValidationError('type', '#/properties/y', '#/y')
-```
+Serpyco is best installed via pip:
+
+.. code-block:: shell
+
+    pip install serpyco
+
+It has only 2 (3 with python 3.6 dataclasses backport) dependencies:
+
+- rapid-json: used for data validation and fast JSON dump/load
+- python-dateutil: used for serializing datetime objects.
+
+Contributing
+------------
+
+Serpyco is written using `Python <https://www.python.org>`_ and `Cython <https://www.cython.org>`_ for parts needing speed.
+
+- `Issue tracker <https://gitlab.com/sgrignard/serpyco/issues>`_
+- `Source code <https://gitlab.com/sgrignard/serpyco>`_
