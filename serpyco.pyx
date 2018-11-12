@@ -504,8 +504,8 @@ class Validator(object):
 
         # transform the json path to something more python-like
         data_path = data_path.replace("#", "data")
-        data_path = re.sub(r"/(\d+)(/|$)", r"[\g<1>]", data_path)
-        data_path = re.sub(r"/(\w+)(/|$)?", r'["\g<1>"]', data_path)
+        data_path = re.sub(r"/(\d+)", r"[\g<1>]", data_path)
+        data_path = re.sub(r"/(\w+)", r'["\g<1>"]', data_path)
 
         if "type" == schema_part_name:
             data_type = d.__class__.__name__
@@ -539,6 +539,8 @@ class Validator(object):
             props = map(lambda s: f'"{s}"', props)
             missing = ", ".join(props)
             msg = f"is missing required properties {missing}"
+        elif "enum" == schema_part_name:
+            msg = f'value must be one of {schema_part}, got "{d}"'
         else:
             msg = f"validation error {exc}"
         return f"{data_path}: {msg}."
