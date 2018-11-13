@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.10
+
+- support field description and examples (via `serpyco.field` arguments)
+- support pre/post load/dump method (via `post_load`, `post_dump`, `pre_load` and `pre_dump` decorators)
+
 ## v0.9
 
 - fix `Optional` fields validation (`None` is a valid value)
