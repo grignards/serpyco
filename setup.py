@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from setuptools import Extension, setup
+from setuptools import Extension, setup, find_packages
 
 requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
 
@@ -11,6 +11,7 @@ setup(
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
     url="https://gitlab.com/sgrignard/serpyco",
+    packages=find_packages(),
     setup_requires=[
         # Setuptools 18.0 properly handles Cython extensions.
         "setuptools>=18.0",
@@ -29,6 +30,6 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Software Development :: Libraries",
     ],
-    ext_modules=[Extension("serpyco", sources=["serpyco.pyx"])],
+    ext_modules=[Extension("serpyco.serializer", sources=["serpyco/serializer.pyx"])],
     zip_safe=False,
 )
