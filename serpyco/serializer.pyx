@@ -16,6 +16,7 @@ import dateutil.parser
 import dataclasses
 import rapidjson
 
+from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.exception import ValidationError, NoEncoderError, JsonSchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
@@ -75,6 +76,10 @@ cdef class Serializer(object):
     cdef bint _omit_none
     cdef object _validator
     cdef list _parent_serializers
+    cdef list _pre_dumpers
+    cdef list _post_dumpers
+    cdef list _pre_loaders
+    cdef list _post_loaders
     cdef dict _types
     _global_types = {
         datetime.datetime: DateTimeFieldEncoder(),
@@ -138,6 +143,28 @@ cdef class Serializer(object):
             }
         )
 
+        # pre/post load/dump methods
+        self._post_dumpers = []
+        self._pre_dumpers = []
+        self._post_loaders = []
+        self._pre_loaders = []
+        for attr_name in dir(dataclass):
+            attr = getattr(dataclass, attr_name)
+            try:
+                tag = getattr(attr, _serpyco_tags)
+                if DecoratorType.POST_DUMP==tag:
+                    self._post_dumpers.append(attr)
+                elif DecoratorType.PRE_DUMP==tag:
+                    self._pre_dumpers.append(attr)
+                elif DecoratorType.POST_LOAD==tag:
+                    self._post_loaders.append(attr)
+                elif DecoratorType.PRE_LOAD==tag:
+                    self._pre_loaders.append(attr)
+                else:
+                    raise ValueError(f"Unknown decorator type {tag}")
+            except AttributeError:
+                continue
+
     def json_schema(self) -> JsonDict:
         """
         Returns the JSON schema of the underlying validator.
@@ -184,11 +211,21 @@ cdef class Serializer(object):
         cdef list objs
         if self._many:
             objs = obj
+            for pre_dump in self._pre_dumpers:
+                objs = map(pre_dump, objs)
             data = [self._dump(o) for o in objs]
+            for post_dump in self._post_dumpers:
+                data = map(post_dump, data)
         else:
+            for pre_dump in self._pre_dumpers:
+                obj = pre_dump(obj)
             data = self._dump(obj)
+            for post_dump in self._post_dumpers:
+                data = post_dump(data)
+        
         if validate:
             self._validator.validate(data)
+        
         return data
 
     cpdef inline load(
@@ -203,14 +240,26 @@ cdef class Serializer(object):
         :param validate: if True, the data will be validated before
             creating objects
         """
-        cdef datas
+        cdef list datas
+        cdef object obj
         if validate:
             self._validator.validate(data)
 
         if self._many:
             datas = data
-            return [self._load(d) for d in datas]
-        return self._load(data)
+            for pre_load in self._pre_loaders:
+                datas = map(pre_load, datas)
+            objs = [self._load(d) for d in datas]
+            for post_load in self._post_loaders:
+                objs = map(post_load, objs)
+            return objs
+        
+        for pre_load in self._pre_loaders:
+            data = pre_load(data)
+        obj = self._load(data)
+        for post_load in self._post_loaders:
+            obj = post_load(obj)
+        return obj
 
     cpdef inline str dump_json(
         self,
@@ -225,11 +274,20 @@ cdef class Serializer(object):
         cdef list objs
         if self._many:
             objs = obj
+            for pre_dump in self._pre_dumpers:
+                objs = map(pre_dump, objs)
             data = [self._dump(o) for o in objs]
+            for post_dump in self._post_dumpers:
+                data = map(post_dump, data)
         else:
+            for pre_dump in self._pre_dumpers:
+                obj = pre_dump(obj)
             data = self._dump(obj)
+            for post_dump in self._post_dumpers:
+                data = post_dump(data)
 
         js = rapidjson.dumps(data)
+        
         if validate:
             self._validator.validate_json(js)
 
@@ -244,13 +302,27 @@ cdef class Serializer(object):
             creating objects
         """
         cdef list datas
+        cdef list objs
+        cdef object obj
         if validate:
             self._validator.validate_json(js)
+
         data = rapidjson.loads(js)
         if self._many:
             datas = data
-            return [self._load(d) for d in datas]
-        return self._load(data)
+            for pre_load in self._pre_loaders:
+                datas = map(pre_load, datas)
+            objs = [self._load(d) for d in datas]
+            for post_load in self._post_loaders:
+                objs = map(post_load, objs)
+            return objs
+        
+        for pre_load in self._pre_loaders:
+            data = pre_load(data)
+        obj = self._load(data)
+        for post_load in self._post_loaders:
+            obj = post_load(obj)
+        return obj
 
     cdef inline dict _dump(self, object obj):
         cdef dict data = {}

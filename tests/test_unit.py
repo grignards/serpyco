@@ -564,3 +564,37 @@ def test_unit__field_description_and_examples__ok__nominal_case():
         "required": ["foo"],
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__decorators__ok__nominal_case():
+    @dataclasses.dataclass
+    class Decorated(object):
+        foo: typing.Optional[str]
+        bar: int
+
+        @serpyco.pre_dump
+        def add_two_to_bar(obj: "Decorated") -> "Decorated":
+            obj.bar += 2
+            return obj
+
+        @serpyco.post_dump
+        def del_foo_key(data: dict) -> dict:
+            del data["foo"]
+            return data
+
+        @serpyco.pre_load
+        def add_foo_if_missing(data: dict) -> dict:
+            if "foo" not in data:
+                data["foo"] = "default"
+            return data
+
+        @serpyco.post_load
+        def substract_two_from_bar(obj: "Decorated") -> "Decorated":
+            obj.bar -= 2
+            return obj
+
+    serializer = serpyco.Serializer(Decorated)
+
+    assert {"bar": 5} == serializer.dump(Decorated(foo="hello", bar=3))
+
+    assert Decorated(foo="default", bar=1) == serializer.load({"bar": 3})

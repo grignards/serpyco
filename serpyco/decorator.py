@@ -1,30 +1,61 @@
 # -*- coding: utf-8 -*-
-
+import enum
 import typing
 
 _serpyco_tags = "__serpyco_tags__"
 
-PRE_DUMP = "pre_dump"
-POST_DUMP = "post_dump"
-PRE_LOAD = "pre_load"
-POST_LOAD = "post_load"
+
+class DecoratorType(str, enum.Enum):
+    PRE_DUMP = "pre_dump"
+    POST_DUMP = "post_dump"
+    PRE_LOAD = "pre_load"
+    POST_LOAD = "post_load"
 
 
-def pre_dump(method: typing.Callable):
-    setattr(method, _serpyco_tags, PRE_DUMP)
+def pre_dump(method: typing.Callable[[object], object]):
+    """
+    This decorator can be applied to a callable taking one object
+    and should return an object of the dataclass it is declared in.
+    The method will then be called with each object given to Serializer.dump
+    or Serializer.dump_json before dumping them.
+    :param: method method to call before dumping
+    """
+    setattr(method, _serpyco_tags, DecoratorType.PRE_DUMP)
     return method
 
 
-def post_load(method: typing.Callable):
-    setattr(method, _serpyco_tags, POST_LOAD)
+def post_load(method: typing.Callable[[object], object]):
+    """
+    This decorator can be applied to a callable taking one data class object
+    and should return an object.
+    The method will then be called with each object output by Serializer.load
+    or Serializer.load_json before returning them.
+    :param: method method to call after loading.
+    """
+    setattr(method, _serpyco_tags, DecoratorType.POST_LOAD)
     return method
 
 
-def pre_load(method: typing.Callable):
-    setattr(method, _serpyco_tags, POST_DUMP)
+def pre_load(method: typing.Callable[[dict], dict]):
+    """
+    This decorator can be applied to a callable taking one dictionary
+    and should return another dictionary.
+    The method will then be called with each dictionary given to
+    Serializer.load or Serializer.load before loading them in
+    dataclass objects.
+    :param: method method to call before loading
+    """
+    setattr(method, _serpyco_tags, DecoratorType.PRE_LOAD)
     return method
 
 
-def post_dump(method: typing.Callable):
-    setattr(method, _serpyco_tags, POST_DUMP)
+def post_dump(method: typing.Callable[[dict], dict]):
+    """
+    This decorator can be applied to a callable taking one dictionary
+    and should return another dictionary.
+    The method will then be called with each dictionary output by
+    Serializer.dump or Serializer.dump_json after dumping them.
+    :param: method method to call after dumping
+    """
+    setattr(method, _serpyco_tags, DecoratorType.POST_DUMP)
     return method
