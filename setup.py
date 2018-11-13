@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from setuptools import Extension, setup, find_packages
+from setuptools import Extension, find_packages, setup
 
 requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
 
 setup(
     name="serpyco",
-    version="0.9",
+    version="0.10",
     description="Fast serialization of dataclasses using Cython",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",

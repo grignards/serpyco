@@ -1,6 +1,7 @@
-import dataclasses
 import enum
 import typing
+
+import dataclasses
 
 _metadata_name = "serpyco"
 
