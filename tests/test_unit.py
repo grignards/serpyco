@@ -538,3 +538,29 @@ def test_unit__only__ok__nominal_case():
         "required": ["foo"],
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__field_description_and_examples__ok__nominal_case():
+    @dataclasses.dataclass
+    class Desc(object):
+        """Description test class"""
+
+        foo: str = serpyco.field(
+            description="This is a foo", examples=["can be foo", "or bar"]
+        )
+
+    serializer = serpyco.Serializer(Desc)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Description test class",
+        "properties": {
+            "foo": {
+                "description": "This is a foo",
+                "examples": ["can be foo", "or bar"],
+                "type": "string",
+            }
+        },
+        "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()

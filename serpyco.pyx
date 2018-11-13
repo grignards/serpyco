@@ -69,7 +69,9 @@ class StringFormat(str, enum.Enum):
 def field(
     dict_key: str=None,
     ignore: bool=False,
-    getter: typing.Callable=None,
+    getter: typing.Optional[typing.Callable]=None,
+    description: typing.Optional[str]=None,
+    examples: typing.List[str]=None,
     *args,
     **kwargs
 ) -> dataclasses.Field:
@@ -82,12 +84,22 @@ def field(
     :param ignore: if True, the field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param description: a description for the field. Will be included
+        in the generated JSON schema
+    :param examples: a list of example usages for the field. Will be included
+        in the generated JSON schema
     """
     metadata = kwargs.get("metadata", {})
-    hints = FieldHints(dict_key=dict_key, ignore=ignore, getter=getter)
+    hints = FieldHints(
+        dict_key=dict_key,
+        ignore=ignore,
+        getter=getter,
+        description=description,
+        examples=examples
+    )
 
     for attr in vars(hints).keys():
-        if attr not in ["dict_key", "ignore", "getter"]:
+        if attr not in ["dict_key", "ignore", "getter", "description", "examples"]:
             setattr(hints, attr, kwargs.pop(attr, None))
 
     metadata[__name__] = hints
@@ -99,6 +111,8 @@ def string_field(
     dict_key: typing.Optional[str]=None,
     ignore: bool=False,
     getter: typing.Callable=None,
+    description: typing.Optional[str]=None,
+    examples: typing.List[str]=None,
     format_: typing.Optional[StringFormat]=None,
     pattern: typing.Optional[str]=None,
     min_length: typing.Optional[int]=None,
@@ -115,6 +129,10 @@ def string_field(
     :param ignore: if True, this field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param description: a description for the field. Will be included
+        in the generated JSON schema
+    :param examples: a list of example usages for the field. Will be included
+        in the generated JSON schema
     :param format_: additional semantic validation for strings
     :param pattern: restricts the strings of this field to the
         given regular expression
@@ -125,6 +143,8 @@ def string_field(
         dict_key,
         ignore,
         getter,
+        description,
+        examples,
         *args,
         format_=format_,
         pattern=pattern,
@@ -138,6 +158,8 @@ def number_field(
     dict_key: typing.Optional[str]=None,
     ignore: bool=False,
     getter: typing.Callable=None,
+    description: typing.Optional[str]=None,
+    examples: typing.List[str]=None,
     minimum: typing.Optional[int]=None,
     maximum: typing.Optional[int]=None,
     *args,
@@ -153,6 +175,10 @@ def number_field(
     :param ignore: if True, this field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param description: a description for the field. Will be included
+        in the generated JSON schema
+    :param examples: a list of example usages for the field. Will be included
+        in the generated JSON schema
     :param minimum: minimum allowed value (inclusive)
     :param maximum: maximum allowed value (inclusive)
     """
@@ -160,6 +186,8 @@ def number_field(
         dict_key,
         ignore,
         getter,
+        description,
+        examples,
         *args,
         minimum=minimum,
         maximum=maximum,
@@ -173,6 +201,8 @@ class FieldHints(object):
         dict_key: typing.Optional[str],
         ignore: bool=False,
         getter: typing.Callable=None,
+        description: typing.Optional[str]=None,
+        examples: typing.Optional[typing.List[str]]=None,
         format_: typing.Optional[str]=None,
         pattern: typing.Optional[str]=None,
         min_length: typing.Optional[int]=None,
@@ -183,6 +213,8 @@ class FieldHints(object):
         self.dict_key = dict_key
         self.ignore = ignore
         self.getter = getter
+        self.description = description
+        self.examples = examples
         self.format_ = format_
         self.pattern = pattern
         self.min_length = min_length
@@ -468,6 +500,11 @@ class Validator(object):
             else:
                 msg = f"Unable to create schema for '{field_type}'"
                 raise JsonSchemaError(msg)
+        if hints.description is not None:
+            field_schema["description"] = hints.description
+        if hints.examples is not None:
+            field_schema["examples"] = hints.examples
+
         return field_schema, required
 
     @staticmethod
