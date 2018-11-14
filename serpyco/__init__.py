@@ -9,4 +9,4 @@ from serpyco.exception import (
 )
 from serpyco.serializer import Serializer, FieldEncoder
 from serpyco.validator import Validator
-from serpyco.field import field, string_field, number_field, StringFormat
+from serpyco.field import field, string_field, number_field, StringPattern

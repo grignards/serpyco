@@ -6,8 +6,14 @@ import dataclasses
 import rapidjson
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (JSON_ENCODABLE_TYPES, JsonDict, _is_generic,
-                          _is_optional, _is_union, _issubclass_safe)
+from serpyco.util import (
+    JSON_ENCODABLE_TYPES,
+    JsonDict,
+    _is_generic,
+    _is_optional,
+    _is_union,
+    _issubclass_safe,
+)
 
 
 class Validator(object):
@@ -225,7 +231,6 @@ class Validator(object):
             elif field_type in JSON_ENCODABLE_TYPES:
                 field_schema = dict(JSON_ENCODABLE_TYPES[field_type])
                 validation_hints = [
-                    ("format_", "format"),
                     ("pattern", "pattern"),
                     ("max_length", "maxLength"),
                     ("min_length", "minLength"),
