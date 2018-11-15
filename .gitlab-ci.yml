@@ -5,7 +5,6 @@ stages:
 image: python:3.7
 
 before_script:
-  - apt-get update -q -y
   - pip install -r requirements.txt
 
 tests-3.6:
@@ -22,6 +21,7 @@ tests-3.7:
 sphinx:
   stage: doc
   script:
+    - apt-get update -q -y
     - apt-get install make
     - pip install sphinx
     - make html
