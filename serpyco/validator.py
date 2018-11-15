@@ -6,8 +6,14 @@ import dataclasses
 import rapidjson
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (JSON_ENCODABLE_TYPES, JsonDict, _is_generic,
-                          _is_optional, _is_union, _issubclass_safe)
+from serpyco.util import (
+    JSON_ENCODABLE_TYPES,
+    JsonDict,
+    _is_generic,
+    _is_optional,
+    _is_union,
+    _issubclass_safe,
+)
 
 
 class Validator(object):
@@ -303,12 +309,14 @@ class Validator(object):
             data_type = d.__class__.__name__
             msg = f"has type {data_type}, expected {schema_part}"
         elif "pattern" == schema_part_name:
-            msg = f'''string doesn\'t match pattern, got "{d}",'
-                expected "{schema_part}"'''
+            msg = (
+                f'string does not match pattern, got "{d}",'
+                + f'expected "{schema_part}"'
+            )
         elif "format" == schema_part_name:
             msg = (
                 f'string doesn\'t match defined format, got "{d}",'
-                f' expected "{schema_part}"'
+                + f' expected "{schema_part}"'
             )
         elif "maximum" == schema_part_name:
             msg = f"number must be <= {schema_part}, got {d}"
@@ -318,13 +326,13 @@ class Validator(object):
             le = len(d)
             msg = (
                 f'string length must be <= {schema_part}, got "{d}"'
-                f" whose length is {le}"
+                + f" whose length is {le}"
             )
         elif "minLength" == schema_part_name:
             le = len(d)
             msg = (
                 f'string length must be >= {schema_part}, got "{d}"'
-                f" whose length is {le}"
+                + f" whose length is {le}"
             )
         elif "required" == schema_part_name:
             props = set(schema_part) - set(d.keys())
