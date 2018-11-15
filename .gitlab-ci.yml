@@ -1,13 +1,31 @@
+stages:
+  - test
+  - doc
+
+before_script:
+  - apt-get update -q -y
+  - pip install -r requirements.txt
+
 tests-3.6:
+  stage: test
   image: python:3.6
   script:
-    - apt-get update -q -y
-    - pip install -r requirements.txt
     - python setup.py test
 
 tests-3.7:
+  stage: test
   image: python:3.7
   script:
-    - apt-get update -q -y
-    - pip install -r requirements.txt
     - python setup.py test
+
+sphinx:
+  stage: doc
+  script:
+    - pip install sphinx
+    - make html
+    - mv _build/html/ public/
+  artifacts:
+    paths:
+    - public
+  only:
+    - master
