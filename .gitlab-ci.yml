@@ -18,7 +18,7 @@ tests-3.7:
   script:
     - python setup.py test
 
-sphinx:
+pages:
   stage: doc
   script:
     - python setup.py install
