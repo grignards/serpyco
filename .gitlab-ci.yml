@@ -26,9 +26,9 @@ sphinx:
     - apt-get install make
     - pip install sphinx sphinx-autodoc-typehints sphinx-rtd-theme sphinxcontrib-websupport
     - make html
-    - mv _build/html/ docs/
+    - mv _build/html/ public
   artifacts:
     paths:
-    - docs
+    - public
   only:
     - master
