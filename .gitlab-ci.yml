@@ -24,7 +24,7 @@ sphinx:
     - python setup.py install
     - apt-get update -q -y
     - apt-get install make
-    - pip install sphinx
+    - pip install sphinx sphinx-autodoc-typehints sphinx-rtd-theme sphinxcontrib-websupport
     - make html
     - mv _build/html/ docs/
   artifacts:
