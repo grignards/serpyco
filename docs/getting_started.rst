@@ -1,11 +1,11 @@
-==============
+===============
 Getting started
 ===============
 
 Serialize dataclasses instances
 -------------------------------
 
-The classic use for Serpyco is to dump your dataclass objects to builtin Python types. This is done by creating a *Serializer* for your dataclass type:
+The classic use for Serpyco is to dump your dataclass objects to builtin Python types. This is done by creating a :class:`serpyco.Serializer` for your dataclass type:
 
 .. literalinclude:: examples/simple_dump.py
     :language: python
@@ -19,21 +19,33 @@ Loading data works the same:
 
 .. code-block:: python
 
-print(serializer.load({'color': 1, 'points': [{'x': 1, 'y': 2}, {'x': 2, 'y': 3}, {'x': 4, 'y': 5}]}))
-Polygon(points=[Point(x=1, y=2), Point(x=2, y=3), Point(x=4, y=5)], color=<PolygonColor.RED: 1>, name=None)
+    >>> serializer.load(
+    >>>     {"color": 1, "points": [{"x": 1, "y": 2}, {"x": 2, "y": 3}, {"x": 4, "y": 5}]}
+    >>> )
+    Polygon(
+        points=[Point(x=1, y=2), Point(x=2, y=3), Point(x=4, y=5)],
+        color=<PolygonColor.RED:1>,
+        name=None,
+    )
 
 Validate data
 -------------
 
-Serpyco can also validate your data when dumping/loading objects.  This is done by the `validate=True` parameter of `dump` and `load`:
+Serpyco can also validate your data when dumping/loading objects.
+This is done by the `validate=True` parameter of
+:func:`serpyco.Serializer.dump` and :func:`serpyco.Serializer.load`:
 
 .. code-block:: python
 
-    serializer.load(
-        {
-            'color': 4,
-            'points': [{'x': "wrong", 'y': 2}, {'x': 2, 'y': 3}, {'x': 4, 'y': 5}]
-        }, validate=True)
+    >>> serializer.load(
+    >>> {
+    >>>     'color': 4,
+    >>>     'points': [
+    >>>         {'x': "wrong", 'y': 2},
+    >>>         {'x': 2, 'y': 3},
+    >>>         {'x': 4, 'y': 5}
+    >>>     ]
+    >>> }, validate=True)
     ValidationError: ('data["points"][0]["x"]: has type str, expected number.')
 
 
@@ -47,12 +59,74 @@ fine-tuning of the validation.
 String fields
 =============
 
-.. literalinclude:: examples/string_field.py
-    :language: python
+Tuning the validation of string fields is done using :func:`serpyco.string_field`:
 
-* Number fields:
+.. code-block:: python
 
-* Optional fields:
+    from dataclasses import dataclass
+    from serpyco import Serializer, string_field, ValidationError
+
+
+    @dataclass
+    class StringFields(object):
+        simple: str
+        name: str = string_field(pattern="^[A-Z]")
+
+
+    serializer = Serializer(StringFields)
+
+    >>> serializer.load({"name": "Foo", "simple": "whatever"}, validate=True)
+    StringFields(simple='whatever', name='Foo')
+
+    >>> serializer.load({"name": "foo", "simple": "foo"}, validate=True)
+    ValidationError: ('data["name"]: string does not match pattern, got "foo",expected "^[A-Z]".')
+
+
+Number fields
+=============
+
+For numbers (`int` and `float`), the tuning is done with :func:`serpyco.number_field`:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from serpyco import Serializer, number_field, ValidationError
+
+
+    @dataclass
+    class NumberFields(object):
+        simple: int
+        range: float = number_field(minimum=0, maximum=10)
+
+
+    serializer = Serializer(NumberFields)
+    >>> serializer.load({"simple": 98, "range": 5}, validate=True)
+    >>> NumberFields(simple=98, range=5)
+
+    >>> serializer.load({"simple": 100, "range": 12}, validate=True)
+    ValidationError: ('data["range"]: number must be <= 10, got 12.')
+
+
+
+Optional fields
+===============
+
+A field can be specified as optional by typing it with `Optional`:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from serpyco import Serializer
+
+
+    @dataclass
+    class OptionalField(object):
+        name: str
+        option: typing.Optional[int] = None
+
+    serializer = Serializer(OptionalField)
+    >>> serializer.load({"name": "foo"}, validate=True)
+    OptionalField(name="foo", option=None)
 
 Recognized types
 ----------------
@@ -69,24 +143,31 @@ The following python types are recognized out-of-the-box by Serpyco:
 Advanced topics
 ---------------
 
-Field serialization options
-===========================
+General field serialization options
+===================================
 
-Options can be defined on fields that changes the behaviour of the serialization. This is done by defining the field as:
+Options can be defined on fields that changes the behaviour of the
+serialization. This is done by using :func:`serpyco.field`:
 
 .. code-block:: python
 
-    from serpyco import field
+    from serpyco import field, Serializer
     @dataclass
     class Example(object):
         name: str = field(dict_key="custom")
 
-See `field()` documentation for its parameters and effects.
+    serializer = Serializer(Example)
+    >>> serializer.dump(Example(name="foo"))
+    {"custom": "foo"}
+    >>> serializer.load(Example({"custom": "foo"})
+    Example(name="foo")
 
 Dump and load to/from JSON
 ==========================
 
-The special methods `dump_json` and `load_json` are provided. They are equivalent as calling:
+The special methods :func:`serpyco.Serializer.dump_json` and
+:func:`serpyco.Serializer.load_json` are provided.
+They are equivalent as calling:
 
 .. code-block:: python
 
@@ -96,21 +177,94 @@ The special methods `dump_json` and `load_json` are provided. They are equivalen
     data = json.loads(data)
     obj = serializer.load(data)
 
-But are faster, especially when using validation (internally, the validation is done using rapidjson and its JSON schema validator).
+But are faster, especially when using validation.
 
 Custom field encoder
---------------------
+====================
 
 You can register your own field encoders for any type:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    import typing
+
+    from serpyco import Serializer, FieldEncoder
+
+
+    class Rational(object):
+        def __init__(self, numerator: int, denominator: int):
+            self.numerator = numerator
+            self.denominator = denominator
+        
+        def __repr__(self) -> str:
+            return f"Rational({self.numerator}/{self.denominator})"
+
+
+    class RationalEncoder(FieldEncoder):
+        def load(self, value: typing.Tuple[int, int]) -> Rational:
+            return Rational(value[0], value[1])
+
+        def dump(self, rational: Rational) -> typing.Tuple[int, int]:
+            return (rational.numerator, rational.denominator)
+
+        def json_schema(self) -> dict:
+            # optional, but helpful to specify a custom validation
+            return {
+                "type": "array",
+                "maxItems": 2,
+                "minItems": 2,
+                "items": {"type": "integer"},
+            }
+
+
+    @dataclass
+    class Custom(object):
+        rational: Rational
+
+
+    serializer = Serializer(Custom, type_encoders={Rational: RationalEncoder()})
+    >>> serializer.dump(Custom(rational=Rational(1, 2)))
+    {'rational': (1, 2)}
+
+    >>> serializer.load({"rational": (1, 2)})
+    Custom(rational=Rational(1/2))
+
+    serializer.load({"rational": (1, 2.1)})
+    ValidationError: ('data["rational"][1]: has type float, expected integer.')
 
 Pre-processing and post-processing methods
 ==========================================
 
-Decorators...
+It is possible to specify additional processing to take place
+before and after either loading or dumping:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+
+    from serpyco import Serializer, post_dump
+
+
+    @dataclass
+    class Custom(object):
+        firstname: str
+        lastname: str
+
+        @post_dump
+        def make_name(data: dict) -> dict:
+            first = data["firstname"]
+            last = data["lastname"]
+            return {"name": f"{first} {last}"}
+
+
+    serializer = Serializer(Custom)
+    >>> serializer.dump(Custom(firstname="foo", lastname="bar"))
+    {'name': 'foo bar'}
 
 Serialize objects which are not dataclass instances
 ===================================================
 
-Serpyco is made to serialize dataclass objects, but you can also use it to only defines "schemas" to dump your existing classes:
+Serpyco is made to serialize dataclass objects, but you can also use it to dump your existing classes:
 
 ...

@@ -1,17 +1,18 @@
 from dataclasses import dataclass
-from serpyco import Serializer, string_field, StringPattern, ValidationError
+from serpyco import Serializer, string_field, ValidationError
 
 
 @dataclass
 class StringFields(object):
-    name: str
-    mail: str = string_field(pattern=StringPattern.IPV4)
+    simple: str
+    name: str = string_field(pattern="^[A-Z]")
 
 
 serializer = Serializer(StringFields)
-print(serializer.load({"name": "foo", "mail": "foo@bar.cc"}))
+print(serializer.load({"name": "Foo", "simple": "whatever"}, validate=True))
 
 try:
-    serializer.load({"name": "foo", "mail": "notamail"}, validate=True)
+    serializer.load({"name": "foo", "simple": "foo"}, validate=True)
 except ValidationError as exc:
-    print(exc)
+    print(f"ValidationError: {exc}")
+

@@ -25,9 +25,9 @@ copyright = "2018, Sébastien Grignard"
 author = "Sébastien Grignard"
 
 # The short X.Y version
-version = ""
+version = "0.10"
 # The full version, including alpha/beta/rc tags
-release = "0.7"
+release = ""
 
 
 # -- General configuration ---------------------------------------------------
@@ -43,7 +43,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.coverage",
-    #    "sphinx_autodoc_typehints",
+    "sphinx_autodoc_typehints",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
