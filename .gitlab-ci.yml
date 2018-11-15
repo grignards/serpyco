@@ -21,6 +21,7 @@ tests-3.7:
 sphinx:
   stage: doc
   script:
+    - python setup.py install
     - apt-get update -q -y
     - apt-get install make
     - pip install sphinx
