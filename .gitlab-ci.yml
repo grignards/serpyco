@@ -2,6 +2,8 @@ stages:
   - test
   - doc
 
+image: python:3.7
+
 before_script:
   - apt-get update -q -y
   - pip install -r requirements.txt
@@ -14,18 +16,18 @@ tests-3.6:
 
 tests-3.7:
   stage: test
-  image: python:3.7
   script:
     - python setup.py test
 
 sphinx:
   stage: doc
   script:
+    - apt-get install make
     - pip install sphinx
     - make html
-    - mv _build/html/ public/
+    - mv _build/html/ docs/
   artifacts:
     paths:
-    - public
+    - docs
   only:
     - master
