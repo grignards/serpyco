@@ -106,8 +106,6 @@ For numbers (`int` and `float`), the tuning is done with :func:`serpyco.number_f
     >>> serializer.load({"simple": 100, "range": 12}, validate=True)
     ValidationError: ('data["range"]: number must be <= 10, got 12.')
 
-
-
 Optional fields
 ===============
 
@@ -143,6 +141,31 @@ The following python types are recognized out-of-the-box by Serpyco:
 Advanced topics
 ---------------
 
+Keep only some fields/exclude some fields from serialization
+============================================================
+
+The fields dumped/loaded by a serializer object can be tuned when creating it:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from serpyco import field, Serializer
+
+    @dataclasses.dataclass
+    class Data(object):
+        """Data test class"""
+
+        foo: str
+        bar: str
+
+    >>> serializer = serpyco.Serializer(Data, only=["foo"])
+    >>> serializer.dump(Data(foo="bar", bar="foo"))
+    {"foo": "bar"}
+    >>> serializer = serpyco.Serializer(Data, exclude=["foo"])
+    >>> serializer.dump(Data(foo="bar", bar="foo"))
+    {"bar": "foo"}
+
+
 General field serialization options
 ===================================
 
@@ -151,7 +174,9 @@ serialization. This is done by using :func:`serpyco.field`:
 
 .. code-block:: python
 
+    from dataclasses import dataclass
     from serpyco import field, Serializer
+
     @dataclass
     class Example(object):
         name: str = field(dict_key="custom")
@@ -161,6 +186,40 @@ serialization. This is done by using :func:`serpyco.field`:
     {"custom": "foo"}
     >>> serializer.load(Example({"custom": "foo"})
     Example(name="foo")
+
+The :func:`serpyco.field` and specific versions for string/number/nested types
+are compatible with :func:`dataclasses.field` signature.
+
+Nested fields serialization options
+===================================
+
+Nested dataclasses serialization can be tuned to only keep
+or exclude some fields by using :func:`serpyco.nested_field`:
+
+.. code-block:: python
+
+    from dataclasses import dataclass
+    from serpyco import Serializer, nested_field
+
+    @dataclass
+    class Nested(object):
+        """Nested test class"""
+
+        foo: str
+        bar: str
+
+    @dataclass
+    class Parent(object):
+        """Parent test class"""
+
+        first: Nested = serpyco.nested_field(only=["foo"])
+        second: Nested = serpyco.nested_field(exclude=["foo"])
+
+    serializer = Serializer(Parent)
+    >>> serializer.dump(
+    >>>    Parent(first=Nested(foo="foo", bar="bar"), second=Nested(foo="foo", bar="bar"))
+    >>> )
+    {"first": {"foo": "foo"}, "second": {"bar": "bar"}}
 
 Dump and load to/from JSON
 ==========================

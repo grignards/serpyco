@@ -48,8 +48,8 @@ def field(
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on dataclass fields.
-    Call it at field declaration as you would do with dataclass.field().
-    Additional parameters will be passed verbatim to dataclass.field().
+    Call it at field declaration as you would do with :func:`dataclasses.field()`.
+    Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
     :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, the field won't be considered by serpico
@@ -102,8 +102,8 @@ def string_field(
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints for a str dataclass field.
-    Call it at field declaration as you would do with dataclass.field().
-    Additional parameters will be passed verbatim to dataclass.field().
+    Call it at field declaration as you would do with :func:`dataclasses.field()`.
+    Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
     :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, this field won't be considered by serpico
@@ -148,8 +148,8 @@ def number_field(
     """
     Convenience function to setup Serializer hints for a number (int/float)
     dataclass field.
-    Call it at field declaration as you would do with dataclass.field().
-    Additional parameters will be passed verbatim to dataclass.field().
+    Call it at field declaration as you would do with :func:`dataclasses.field()`.
+    Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
     :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, this field won't be considered by serpico
@@ -186,6 +186,22 @@ def nested_field(
     *args,
     **kwargs,
 ) -> dataclasses.Field:
+    """
+    Convenience function to setup Serializer hints on nested dataclass fields.
+    Call it at field declaration as you would do with :func:`dataclasses.field()`.
+    Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
+
+    :param only: if present, only fields in this list will be serialized
+    :param exclude: if present, fields in this list will not be serialized
+    :param dict_key: key of the field in the dumped dictionary
+    :param ignore: if True, the field won't be considered by serpico
+    :param getter: callable used to get values of this field.
+        Must take one object argument
+    :param description: a description for the field. Will be included
+        in the generated JSON schema
+    :param examples: a list of example usages for the field. Will be included
+        in the generated JSON schema
+    """
     return field(
         dict_key,
         ignore,
