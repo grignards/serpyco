@@ -1,4 +1,7 @@
+black
 Cython==0.29
 dataslots
+flake8
+isort
 pytest
 pytest-benchmark
