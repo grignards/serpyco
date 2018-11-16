@@ -7,14 +7,8 @@ import rapidjson
 from serpyco.encoder import FieldEncoder
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (
-    JSON_ENCODABLE_TYPES,
-    JsonDict,
-    _is_generic,
-    _is_optional,
-    _is_union,
-    _issubclass_safe,
-)
+from serpyco.util import (JSON_ENCODABLE_TYPES, JsonDict, _is_generic,
+                          _is_optional, _is_union, _issubclass_safe)
 
 
 @dataclasses.dataclass
@@ -51,6 +45,8 @@ class Validator(object):
         self._dataclass = dataclass
         self._many = many
         self._validator: typing.Optional[rapidjson.Validator] = None
+        self._only = only or []
+        self._exclude = exclude or []
         self._types = type_encoders
         self._fields: typing.List[_ValidatorField] = []
         for f in dataclasses.fields(dataclass):
@@ -64,6 +60,11 @@ class Validator(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             self._fields.append(_ValidatorField(f, hints))
+
+    def __hash__(self) -> int:
+        return hash(
+            (self._dataclass, self._many, tuple(self._only), tuple(self._exclude))
+        )
 
     def validate(self, data: typing.Union[dict, list]) -> None:
         """
@@ -157,19 +158,34 @@ class Validator(object):
             for item_type in item_types:
                 # Prevent recursion from forward refs &
                 # circular type dependencies
+                definition_name = self._get_definition_name(
+                    item_type, vfield.hints.only, vfield.hints.exclude
+                )
                 if (
                     dataclasses.is_dataclass(item_type)
-                    and item_type.__name__ not in definitions
+                    and definition_name not in definitions
                 ):
                     for validator in parent_validators:
-                        if validator._dataclass == item_type:
+                        if hash(validator) == hash(
+                            (
+                                item_type,
+                                False,
+                                tuple(vfield.hints.only),
+                                tuple(vfield.hints.exclude),
+                            )
+                        ):
                             break
                     else:
-                        sub = Validator(item_type, type_encoders=self._types)
+                        sub = Validator(
+                            item_type,
+                            type_encoders=self._types,
+                            only=vfield.hints.only,
+                            exclude=vfield.hints.exclude,
+                        )
                         item_schema = sub._create_json_schema(
                             embeddable=True, parent_validators=parent_validators
                         )
-                        definitions[item_type.__name__] = None
+                        definitions[definition_name] = None
                         definitions.update(item_schema)
             if is_required:
                 required.append(vfield.hints.dict_key)
@@ -180,7 +196,12 @@ class Validator(object):
             schema["description"] = self._dataclass.__doc__.strip()
 
         if embeddable:
-            schema = {**definitions, self._dataclass.__name__: schema}
+            schema = {
+                **definitions,
+                self._get_definition_name(
+                    self._dataclass, self._only, self._exclude
+                ): schema,
+            }
         elif not self._many:
             schema = {
                 **schema,
@@ -207,7 +228,6 @@ class Validator(object):
     ) -> typing.Tuple[JsonDict, bool]:
         field_schema: JsonDict = {"type": "object"}
         required = True
-        field_type_name = self._get_field_type_name(field_type)
         if field_type in self._types:
             field_schema = self._types[field_type].json_schema()
         elif field_type in self._global_types:
@@ -216,7 +236,11 @@ class Validator(object):
             if field_type == parent_validators[0]._dataclass:
                 ref = "#"
             else:
-                ref = "#/definitions/{}".format(field_type_name)
+                ref = "#/definitions/{}".format(
+                    self._get_definition_name(
+                        field_type, vfield.hints.only, vfield.hints.exclude
+                    )
+                )
             field_schema = {"$ref": ref}
         else:
             if _is_optional(field_type):
@@ -291,7 +315,7 @@ class Validator(object):
 
         if vfield.hints.description is not None:
             field_schema["description"] = vfield.hints.description
-        if vfield.hints.examples is not None:
+        if vfield.hints.examples:
             field_schema["examples"] = vfield.hints.examples
 
         return field_schema, required
@@ -317,6 +341,19 @@ class Validator(object):
             else:
                 raise ValueError("Got a data which is not a list or dict")
         return data
+
+    @staticmethod
+    def _get_definition_name(type_: type, only, exclude):
+        """
+        Ensures that a definition name is unique even for the same type
+        with different only/exclude parameters
+        """
+        name = type_.__name__
+        if only:
+            name += "_only_" + "_".join(only)
+        if exclude:
+            name += "_exclude_" + "_".join(exclude)
+        return name
 
     def _get_error_message(self, exc: rapidjson.ValidationError, data: dict) -> str:
         schema = self._create_json_schema()

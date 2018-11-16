@@ -61,6 +61,8 @@ cdef class Serializer(object):
     cdef list _pre_loaders
     cdef list _post_loaders
     cdef dict _types
+    cdef list _only
+    cdef list _exclude
     _global_types = {
         datetime.datetime: DateTimeFieldEncoder(),
         uuid.UUID: UuidFieldEncoder()
@@ -71,12 +73,12 @@ cdef class Serializer(object):
     def __init__(
         self,
         dataclass: type,
-        many: bool=False,
-        omit_none: bool=True,
-        type_encoders: typing.Dict[type, FieldEncoder]={},
-        only: typing.Optional[typing.List[str]]=None,
-        exclude: typing.Optional[typing.List[str]]=None,
-        _parent_serializers: typing.List["Serializer"]=None
+        many: bool = False,
+        omit_none: bool = True,
+        type_encoders: typing.Dict[type, FieldEncoder] = {},
+        only: typing.Optional[typing.List[str]] = None,
+        exclude: typing.Optional[typing.List[str]] = None,
+        _parent_serializers: typing.List["Serializer"] = None
     ):
         """
         Constructs a serializer for the given data class.
@@ -94,19 +96,25 @@ cdef class Serializer(object):
         self._many = many
         self._omit_none = omit_none
         self._types = type_encoders
+        self._only = only or []
+        self._exclude = exclude or []
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
-        type_hints = typing.get_type_hints(dataclass)
         self._fields = []
 
+        type_hints = typing.get_type_hints(dataclass)
         for f in dataclasses.fields(dataclass):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
-            if hints.ignore or (only and f.name not in only) or (exclude and f.name in exclude):
+            if (
+                hints.ignore
+                or (only and f.name not in only)
+                or (exclude and f.name in exclude)
+            ):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
-            encoder = self._get_encoder(field_type)
+            encoder = self._get_encoder(field_type, hints)
             self._fields.append(SField(
                 f.name,
                 hints.dict_key,
@@ -143,6 +151,15 @@ cdef class Serializer(object):
                     raise ValueError(f"Unknown decorator type {tag}")
             except AttributeError:
                 continue
+
+    def __hash__(self):
+        return hash((
+            self._dataclass,
+            self._many,
+            self._omit_none,
+            tuple(self._only),
+            tuple(self._exclude)
+        ))
 
     def json_schema(self) -> JsonDict:
         """
@@ -201,10 +218,10 @@ cdef class Serializer(object):
             data = self._dump(obj)
             for post_dump in self._post_dumpers:
                 data = post_dump(data)
-        
+
         if validate:
             self._validator.validate(data)
-        
+
         return data
 
     cpdef inline load(
@@ -232,7 +249,7 @@ cdef class Serializer(object):
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
             return objs
-        
+
         for pre_load in self._pre_loaders:
             data = pre_load(data)
         obj = self._load(data)
@@ -266,7 +283,7 @@ cdef class Serializer(object):
                 data = post_dump(data)
 
         js = rapidjson.dumps(data)
-        
+
         if validate:
             self._validator.validate_json(js)
 
@@ -295,7 +312,7 @@ cdef class Serializer(object):
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
             return objs
-        
+
         for pre_load in self._pre_loaders:
             data = pre_load(data)
         obj = self._load(data)
@@ -333,7 +350,7 @@ cdef class Serializer(object):
             decoded_data[sfield.field_name] = decoded
         return self._dataclass(**decoded_data)
 
-    def _get_encoder(self, field_type):
+    def _get_encoder(self, field_type, hints):
         if field_type in self._types:
             return self._types[field_type]
         elif field_type in self._global_types:
@@ -344,33 +361,43 @@ cdef class Serializer(object):
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
             return None
         elif _is_optional(field_type):
-            return self._get_encoder(field_type.__args__[0])
+            return self._get_encoder(field_type.__args__[0], hints)
         elif _is_union(field_type):
             type_encoders = [
-                (item_type, self._get_encoder(item_type))
+                (item_type, self._get_encoder(item_type, hints))
                 for item_type in field_type.__args__
             ]
             return UnionFieldEncoder(type_encoders)
         elif _is_generic(field_type, typing.Mapping):
-            key_encoder = self._get_encoder(field_type.__args__[0])
-            value_encoder = self._get_encoder(field_type.__args__[1])
+            key_encoder = self._get_encoder(field_type.__args__[0], hints)
+            value_encoder = self._get_encoder(field_type.__args__[1], hints)
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
         elif _is_generic(field_type, typing.Iterable):
-            item_encoder = self._get_encoder(field_type.__args__[0])
+            item_encoder = self._get_encoder(field_type.__args__[0], hints)
             return IterableFieldEncoder(item_encoder, field_type)
         elif dataclasses.is_dataclass(field_type):
             # See if one of our "ancestors" handles this type.
             # This avoids infinite recursion if dataclasses establish a cycle
             for serializer in self._parent_serializers:
-                if serializer.dataclass() == field_type:
+                sh = hash(serializer)
+                h = hash((
+                    field_type,
+                    self._many,
+                    self._omit_none,
+                    tuple(hints.only),
+                    tuple(hints.exclude)
+                ))
+                if h == sh:
                     break
             else:
                 serializer = Serializer(
                     field_type,
                     omit_none=self._omit_none,
                     type_encoders=self._types,
+                    only=hints.only,
+                    exclude=hints.exclude,
                     _parent_serializers=self._parent_serializers,
                 )
             return DataClassFieldEncoder(serializer)

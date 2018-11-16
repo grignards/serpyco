@@ -6,32 +6,24 @@ import dataclasses
 _metadata_name = "serpyco"
 
 
+@dataclasses.dataclass
 class FieldHints(object):
-    def __init__(
-        self,
-        dict_key: typing.Optional[str],
-        ignore: bool = False,
-        getter: typing.Callable = None,
-        description: typing.Optional[str] = None,
-        examples: typing.Optional[typing.List[str]] = None,
-        format_: typing.Optional[str] = None,
-        pattern: typing.Optional[str] = None,
-        min_length: typing.Optional[int] = None,
-        max_length: typing.Optional[int] = None,
-        minimum: typing.Optional[int] = None,
-        maximum: typing.Optional[int] = None,
-    ) -> None:
-        self.dict_key = dict_key
-        self.ignore = ignore
-        self.getter = getter
-        self.description = description
-        self.examples = examples
-        self.format_ = format_
-        self.pattern = pattern
-        self.min_length = min_length
-        self.max_length = max_length
-        self.minimum = minimum
-        self.maximum = maximum
+    dict_key: typing.Optional[str] = None
+    ignore: bool = False
+    getter: typing.Optional[typing.Callable] = None
+    description: typing.Optional[str] = None
+    examples: typing.List[str] = dataclasses.field(default_factory=list)
+    format_: typing.Optional[str] = None
+    pattern: typing.Optional[str] = None
+    min_length: typing.Optional[int] = None
+    max_length: typing.Optional[int] = None
+    minimum: typing.Optional[int] = None
+    maximum: typing.Optional[int] = None
+    only: typing.List[str] = dataclasses.field(default_factory=list)
+    exclude: typing.List[str] = dataclasses.field(default_factory=list)
+
+
+_field_hints_names = set(f.name for f in dataclasses.fields(FieldHints))
 
 
 class StringFormat(str, enum.Enum):
@@ -69,21 +61,30 @@ def field(
         in the generated JSON schema
     """
     metadata = kwargs.get("metadata", {})
+
+    hints_args = {
+        key: value
+        for key, value in kwargs.items()
+        if key in _field_hints_names and value is not None
+    }
+
+    field_args = {
+        key: value for key, value in kwargs.items() if key not in _field_hints_names
+    }
+
     hints = FieldHints(
         dict_key=dict_key,
         ignore=ignore,
         getter=getter,
         description=description,
         examples=examples,
+        **hints_args,
     )
 
-    for attr in vars(hints).keys():
-        if attr not in ["dict_key", "ignore", "getter", "description", "examples"]:
-            setattr(hints, attr, kwargs.pop(attr, None))
-
+    metadata = field_args.get("metadata", {})
     metadata[_metadata_name] = hints
-    kwargs["metadata"] = metadata
-    return dataclasses.field(*args, **kwargs)
+    field_args["metadata"] = metadata
+    return dataclasses.field(*args, **field_args)
 
 
 def string_field(
@@ -170,5 +171,29 @@ def number_field(
         *args,
         minimum=minimum,
         maximum=maximum,
+        **kwargs,
+    )
+
+
+def nested_field(
+    only: typing.Optional[typing.List[str]] = None,
+    exclude: typing.Optional[typing.List[str]] = None,
+    dict_key: typing.Optional[str] = None,
+    ignore: bool = False,
+    getter: typing.Callable = None,
+    description: typing.Optional[str] = None,
+    examples: typing.List[str] = None,
+    *args,
+    **kwargs,
+) -> dataclasses.Field:
+    return field(
+        dict_key,
+        ignore,
+        getter,
+        description,
+        examples,
+        *args,
+        only=only,
+        exclude=exclude,
         **kwargs,
     )

@@ -633,6 +633,7 @@ def test_unit__decorators__ok__nominal_case():
 
     assert Decorated(foo="default", bar=1) == serializer.load({"bar": 3})
 
+
 def test_unit__exclude__ok__nominal_case():
     @dataclasses.dataclass
     class Exclude(object):
@@ -649,5 +650,50 @@ def test_unit__exclude__ok__nominal_case():
         "definitions": {},
         "properties": {"bar": {"type": "string"}},
         "required": ["bar"],
+        "type": "object",
+    } == serializer.json_schema()
+
+
+def test_unit__nested_field__ok__nominal_case():
+    @dataclasses.dataclass
+    class Nested(object):
+        """Nested test class"""
+
+        foo: str
+        bar: str
+
+    @dataclasses.dataclass
+    class Parent(object):
+        """Parent test class"""
+
+        first: Nested = serpyco.nested_field(only=["foo"])
+        second: Nested = serpyco.nested_field(exclude=["foo"])
+
+    serializer = serpyco.Serializer(Parent)
+    assert {"first": {"foo": "foo"}, "second": {"bar": "bar"}} == serializer.dump(
+        Parent(first=Nested(foo="foo", bar="bar"), second=Nested(foo="foo", bar="bar"))
+    )
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Parent test class",
+        "definitions": {
+            "Nested_exclude_foo": {
+                "type": "object",
+                "description": "Nested test class",
+                "properties": {"bar": {"type": "string"}},
+                "required": ["bar"],
+            },
+            "Nested_only_foo": {
+                "type": "object",
+                "description": "Nested test class",
+                "properties": {"foo": {"type": "string"}},
+                "required": ["foo"],
+            },
+        },
+        "properties": {
+            "first": {"$ref": "#/definitions/Nested_only_foo"},
+            "second": {"$ref": "#/definitions/Nested_exclude_foo"},
+        },
+        "required": ["first", "second"],
         "type": "object",
     } == serializer.json_schema()

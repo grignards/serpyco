@@ -23,4 +23,3 @@ cdef class FieldEncoder(object):
         Return the JSON schema of the handled value type.
         """
         raise NotImplementedError()
-
