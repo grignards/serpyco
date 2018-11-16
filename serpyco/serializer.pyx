@@ -167,6 +167,56 @@ cdef class Serializer(object):
         """
         return self._validator.json_schema()
 
+    def get_dict_path(self, obj_path: typing.Sequence[str]) -> typing.List[str]:
+        """
+        Returns the path of a field in dumped dictionaries.
+        :param: obj_path list of field names, for example
+            ["foo", "bar"] to get the dict path of foo.bar.
+        """
+        cdef SField sfield
+        cdef Serializer ser
+        cdef DataClassFieldEncoder dencoder
+        part = obj_path[0]
+        for sfield in self._fields:
+            if sfield.field_name==part:
+                break
+        else:
+            raise KeyError(f"Unknown field {part} in {self._dataclass}")
+
+        if 1 == len(obj_path):
+            return [sfield.dict_key]
+
+        if not isinstance(sfield.encoder, DataClassFieldEncoder):
+            raise ValueError(f"field {part} is not a dataclass")
+        dencoder = sfield.encoder
+        ser = dencoder._serializer
+        return [sfield.dict_key] + ser.get_dict_path(obj_path[1:])
+
+    def get_object_path(self, dict_path: typing.Sequence[str]) -> typing.List[str]:
+        """
+        Returns the path of a field in loaded objects.
+        :param: dict_path list of dictionary keys, for example
+            ["foo", "bar"] to get the object path of {"foo": {"bar": 42}}.
+        """
+        cdef SField sfield
+        cdef Serializer ser
+        cdef DataClassFieldEncoder dencoder
+        part = dict_path[0]
+        for sfield in self._fields:
+            if sfield.dict_key==part:
+                break
+        else:
+            raise KeyError(f"Unknown dict key {part} in {self._dataclass}")
+
+        if 1 == len(dict_path):
+            return [sfield.field_name]
+
+        if not isinstance(sfield.encoder, DataClassFieldEncoder):
+            raise ValueError(f"field {sfield.field_name} is not a dataclass")
+        dencoder = sfield.encoder
+        ser = dencoder._serializer
+        return [sfield.field_name] + ser.get_object_path(dict_path[1:])
+
     @classmethod
     def register_global_type(
         cls,

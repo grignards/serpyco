@@ -697,3 +697,18 @@ def test_unit__nested_field__ok__nominal_case():
         "required": ["first", "second"],
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__get_dict_object_path__ok__nominal_case():
+    @dataclasses.dataclass
+    class Nested(object):
+        foo: str = serpyco.field(dict_key="bar")
+
+    @dataclasses.dataclass
+    class Parent(object):
+        nested: Nested = serpyco.field(dict_key="n")
+
+    serializer = serpyco.Serializer(Parent)
+
+    assert ["n", "bar"] == serializer.get_dict_path(["nested", "foo"])
+    assert ["nested", "foo"] == serializer.get_object_path(["n", "bar"])
