@@ -1,5 +1,12 @@
 # Serpyco changelog
 
+## v0.11
+
+- Serializer can exclude fields (via `exclude` parameter)
+- default values of field are written in the generated JSON schema
+- get dict/object paths of fields
+- `only` and `exclude` in nested fields (via `serpyco.nested_field` function)
+
 ## v0.10
 
 - support field description and examples (via `serpyco.field` arguments)
