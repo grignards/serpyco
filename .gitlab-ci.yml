@@ -18,10 +18,10 @@ black:
   script:
     - black --check .
 
-isort:
-  stage: style
-  script:
-    - isort -c
+# isort:
+#   stage: style
+#   script:
+#     - isort -c -rc .
 
 tests-3.6:
   stage: test
