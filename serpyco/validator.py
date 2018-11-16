@@ -4,10 +4,23 @@ import typing
 
 import dataclasses
 import rapidjson
+from serpyco.encoder import FieldEncoder
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (JSON_ENCODABLE_TYPES, JsonDict, _is_generic,
-                          _is_optional, _is_union, _issubclass_safe)
+from serpyco.util import (
+    JSON_ENCODABLE_TYPES,
+    JsonDict,
+    _is_generic,
+    _is_optional,
+    _is_union,
+    _issubclass_safe,
+)
+
+
+@dataclasses.dataclass
+class _ValidatorField(object):
+    field: dataclasses.Field
+    hints: FieldHints
 
 
 class Validator(object):
@@ -21,8 +34,8 @@ class Validator(object):
         self,
         dataclass: type,
         many: bool = False,
-        type_schemas: typing.Dict[type, dict] = {},
         only: typing.Optional[typing.List[str]] = None,
+        type_encoders: typing.Dict[type, FieldEncoder] = {},
     ) -> None:
         """
         Creates a Validator for the given dataclass.
@@ -30,21 +43,22 @@ class Validator(object):
         :param dataclass: dataclass to validate.
         :param many: if True, the validator will validate against lists
         of dataclass.
-        :param type_schemas: setup custom schemas for given types
         :param only: if given, only the fields in this list will be used
+        :param type_encoders: dictionary of {type: FieldEncoder()}
+            used to get json schema for given type and dump default values.
         """
         self._dataclass = dataclass
         self._many = many
         self._validator: typing.Optional[rapidjson.Validator] = None
-        self._types = type_schemas
-        self._fields: typing.List[typing.Tuple[str, FieldHints]] = []
+        self._types = type_encoders
+        self._fields: typing.List[_ValidatorField] = []
         for f in dataclasses.fields(dataclass):
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
             if hints.ignore or (only and f.name not in only):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
-            self._fields.append((f.name, hints))
+            self._fields.append(_ValidatorField(f, hints))
 
     def validate(self, data: typing.Union[dict, list]) -> None:
         """
@@ -106,11 +120,23 @@ class Validator(object):
 
         properties = {}
         required = []
-        for field_name, hints in self._fields:
-            field_type = type_hints[field_name]
-            properties[hints.dict_key], is_required = self._get_field_schema(
-                field_type, parent_validators, hints=hints
+        for vfield in self._fields:
+            field_type = type_hints[vfield.field.name]
+            field_schema, is_required = self._get_field_schema(
+                field_type, parent_validators, vfield=vfield
             )
+
+            if vfield.field.default != dataclasses.MISSING:
+                val = vfield.field.default
+                if field_type in self._types:
+                    val = self._types[field_type].dump(val)
+                field_schema["default"] = val
+            elif vfield.field.default_factory != dataclasses.MISSING:
+                val = vfield.field.default_factory()
+                if field_type in self._types:
+                    val = self._types[field_type].dump(val)
+                field_schema["default"] = val
+            properties[vfield.hints.dict_key] = field_schema
 
             # Update definitions to objects
             item_types = [field_type]
@@ -134,14 +160,14 @@ class Validator(object):
                         if validator._dataclass == item_type:
                             break
                     else:
-                        sub = Validator(item_type, type_schemas=self._types)
+                        sub = Validator(item_type, type_encoders=self._types)
                         item_schema = sub._create_json_schema(
                             embeddable=True, parent_validators=parent_validators
                         )
                         definitions[item_type.__name__] = None
                         definitions.update(item_schema)
             if is_required:
-                required.append(hints.dict_key)
+                required.append(vfield.hints.dict_key)
         schema = {"type": "object", "properties": properties}
         if required:
             schema["required"] = required
@@ -172,13 +198,13 @@ class Validator(object):
         self,
         field_type: typing.Any,
         parent_validators: typing.List["Validator"],
-        hints: typing.Optional[FieldHints] = None,
+        vfield: _ValidatorField,
     ) -> typing.Tuple[JsonDict, bool]:
         field_schema: JsonDict = {"type": "object"}
         required = True
         field_type_name = self._get_field_type_name(field_type)
         if field_type in self._types:
-            field_schema = self._types[field_type]
+            field_schema = self._types[field_type].json_schema()
         elif field_type in self._global_types:
             field_schema = self._global_types[field_type]
         elif dataclasses.is_dataclass(field_type):
@@ -192,7 +218,7 @@ class Validator(object):
                 field_schema = {
                     "anyOf": [
                         self._get_field_schema(
-                            field_type.__args__[0], parent_validators, hints
+                            field_type.__args__[0], parent_validators, vfield
                         )[0],
                         {"type": "null"},
                     ]
@@ -200,7 +226,7 @@ class Validator(object):
                 required = False
             elif _is_union(field_type):
                 schemas = [
-                    self._get_field_schema(item_type, parent_validators, hints)[0]
+                    self._get_field_schema(item_type, parent_validators, vfield)[0]
                     for item_type in field_type.__args__
                 ]
                 field_schema["oneOf"] = schemas
@@ -232,37 +258,36 @@ class Validator(object):
                     ("minimum", "minimum"),
                     ("maximum", "maximum"),
                 ]
-                if hints:
-                    for hint_attr, schema_attr in validation_hints:
-                        attr = getattr(hints, hint_attr)
-                        if attr is not None:
-                            field_schema[schema_attr] = attr
-
+                for hint_attr, schema_attr in validation_hints:
+                    attr = getattr(vfield.hints, hint_attr)
+                    if attr is not None:
+                        field_schema[schema_attr] = attr
             elif _is_generic(field_type, typing.Mapping):
                 field_schema = {"type": "object"}
                 if field_type.__args__[1] is not typing.Any:
                     add = self._get_field_schema(
-                        field_type.__args__[1], parent_validators, hints
+                        field_type.__args__[1], parent_validators, vfield
                     )[0]
                     field_schema["additionalProperties"] = add
             elif _is_generic(field_type, typing.Iterable):
                 field_schema = {"type": "array"}
                 if field_type.__args__[0] is not typing.Any:
                     items = self._get_field_schema(
-                        field_type.__args__[0], parent_validators, hints
+                        field_type.__args__[0], parent_validators, vfield
                     )[0]
                     field_schema["items"] = items
             elif hasattr(field_type, "__supertype__"):  # NewType fields
                 field_schema, _ = self._get_field_schema(
-                    field_type.__supertype__, parent_validators, hints
+                    field_type.__supertype__, parent_validators, vfield
                 )
             else:
                 msg = f"Unable to create schema for '{field_type}'"
                 raise JsonSchemaError(msg)
-        if hints.description is not None:
-            field_schema["description"] = hints.description
-        if hints.examples is not None:
-            field_schema["examples"] = hints.examples
+
+        if vfield.hints.description is not None:
+            field_schema["description"] = vfield.hints.description
+        if vfield.hints.examples is not None:
+            field_schema["examples"] = vfield.hints.examples
 
         return field_schema, required
 

@@ -30,6 +30,9 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Topic :: Software Development :: Libraries",
     ],
-    ext_modules=[Extension("serpyco.serializer", sources=["serpyco/serializer.pyx"])],
+    ext_modules=[
+        Extension("serpyco.serializer", sources=["serpyco/serializer.pyx"]),
+        Extension("serpyco.encoder", sources=["serpyco/encoder.pyx"]),
+    ],
     zip_safe=False,
 )

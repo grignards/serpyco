@@ -192,7 +192,10 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "nested": {"$ref": "#/definitions/Simple"},
             "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
             "number": {"type": "number"},
-            "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+            "optional": {
+                "anyOf": [{"type": "integer"}, {"type": "null"}],
+                "default": None,
+            },
             "string": {"type": "string"},
         },
         "required": [
@@ -242,7 +245,10 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "nested": {"$ref": "#/definitions/Simple"},
                 "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
                 "number": {"type": "number"},
-                "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                "optional": {
+                    "anyOf": [{"type": "integer"}, {"type": "null"}],
+                    "default": None,
+                },
                 "string": {"type": "string"},
             },
             "required": [
@@ -562,6 +568,34 @@ def test_unit__field_description_and_examples__ok__nominal_case():
             }
         },
         "required": ["foo"],
+        "type": "object",
+    } == serializer.json_schema()
+
+
+def test_unit__field_default__ok__nominal_case():
+    @dataclasses.dataclass
+    class Desc(object):
+        """Description test class"""
+
+        foo: str = "foo"
+        bar: str = dataclasses.field(default_factory=lambda: "bar")
+        datetime_: datetime.datetime = datetime.datetime(2018, 11, 24, 19, 0, 0, 0)
+
+    serializer = serpyco.Serializer(Desc)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Description test class",
+        "properties": {
+            "foo": {"default": "foo", "type": "string"},
+            "bar": {"default": "bar", "type": "string"},
+            "datetime_": {
+                "default": "2018-11-24T19:00:00+00:00",
+                "type": "string",
+                "format": "date-time",
+            },
+        },
+        "required": ["foo", "bar", "datetime_"],
         "type": "object",
     } == serializer.json_schema()
 

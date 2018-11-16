@@ -17,32 +17,12 @@ import dataclasses
 import rapidjson
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
+from serpyco.encoder cimport FieldEncoder
 from serpyco.exception import ValidationError, NoEncoderError, JsonSchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
 from serpyco.util import _is_generic, _is_optional, _is_union, _issubclass_safe
 from serpyco.validator import Validator
-
-cdef class FieldEncoder(object):
-    """Base class for encoding fields to and from JSON encodable values"""
-
-    cpdef dump(self, value: typing.Any):
-        """
-        Convert the given value to a JSON encodable value
-        """
-        raise NotImplementedError()
-
-    cpdef load(self, value: typing.Any):
-        """
-        Convert the given JSON value to its python counterpart
-        """
-        raise NotImplementedError()
-
-    def json_schema(self) -> JsonDict:
-        """
-        Return the JSON schema for this encoder"s handled value type(s).
-        """
-        raise NotImplementedError()
 
 
 cdef class SField:
@@ -137,10 +117,7 @@ cdef class Serializer(object):
             dataclass,
             many=many,
             only=only,
-            type_schemas={
-                type_: encoder.json_schema()
-                for type_, encoder in self._types.items()
-            }
+            type_encoders={**self._global_types, **self._types}
         )
 
         # pre/post load/dump methods
@@ -419,7 +396,7 @@ cdef class EnumFieldEncoder(FieldEncoder):
 cdef class DataClassFieldEncoder(FieldEncoder):
     cdef Serializer _serializer
 
-    def __init__(self, serializer: Serializer):
+    def __init__(self, Serializer serializer):
         self._serializer = serializer
 
     cpdef inline load(self, value: typing.Any):
@@ -453,12 +430,12 @@ cdef class IterableFieldEncoder(FieldEncoder):
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
-            return self._iterable_type(map(self._item_encoder.load, value))
+            return self._iterable_type([self._item_encoder.load(v) for v in value])
         return self._iterable_type(value)
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            return self._iterable_type(map(self._item_encoder.dump, value))
+            return self._iterable_type([self._item_encoder.dump(v) for v in value])
         return self._iterable_type(value)
 
 
