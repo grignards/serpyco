@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 from serpyco import Serializer, post_dump
 
 

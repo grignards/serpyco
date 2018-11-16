@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import typing
 
-from serpyco import Serializer, FieldEncoder
+from dataclasses import dataclass
+from serpyco import FieldEncoder, Serializer
 
 
 class Rational(object):

@@ -29,4 +29,3 @@ serializer.dump(
     Polygon(points=[Point(1, 2), Point(2, 3), Point(4, 5)], color=PolygonColor.RED)
 )
 {"color": 1, "points": [{"x": 1, "y": 2}, {"x": 2, "y": 3}, {"x": 4, "y": 5}]}
-

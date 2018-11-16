@@ -6,14 +6,8 @@ import dataclasses
 import rapidjson
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (
-    JSON_ENCODABLE_TYPES,
-    JsonDict,
-    _is_generic,
-    _is_optional,
-    _is_union,
-    _issubclass_safe,
-)
+from serpyco.util import (JSON_ENCODABLE_TYPES, JsonDict, _is_generic,
+                          _is_optional, _is_union, _issubclass_safe)
 
 
 class Validator(object):

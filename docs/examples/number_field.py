@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from serpyco import Serializer, number_field, ValidationError
+from serpyco import Serializer, ValidationError, number_field
 
 
 @dataclass
@@ -15,4 +15,3 @@ try:
     serializer.load({"simple": 100, "range": 12}, validate=True)
 except ValidationError as exc:
     print(f"ValidationError: {exc}")
-

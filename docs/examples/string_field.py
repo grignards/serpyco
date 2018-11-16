@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from serpyco import Serializer, string_field, ValidationError
+from serpyco import Serializer, ValidationError, string_field
 
 
 @dataclass
@@ -15,4 +15,3 @@ try:
     serializer.load({"name": "foo", "simple": "foo"}, validate=True)
 except ValidationError as exc:
     print(f"ValidationError: {exc}")
-
