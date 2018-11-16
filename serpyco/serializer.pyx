@@ -75,6 +75,7 @@ cdef class Serializer(object):
         omit_none: bool=True,
         type_encoders: typing.Dict[type, FieldEncoder]={},
         only: typing.Optional[typing.List[str]]=None,
+        exclude: typing.Optional[typing.List[str]]=None,
         _parent_serializers: typing.List["Serializer"]=None
     ):
         """
@@ -101,7 +102,7 @@ cdef class Serializer(object):
         for f in dataclasses.fields(dataclass):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
-            if hints.ignore or (only and f.name not in only):
+            if hints.ignore or (only and f.name not in only) or (exclude and f.name in exclude):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
@@ -117,6 +118,7 @@ cdef class Serializer(object):
             dataclass,
             many=many,
             only=only,
+            exclude=exclude,
             type_encoders={**self._global_types, **self._types}
         )
 

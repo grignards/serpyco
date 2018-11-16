@@ -632,3 +632,22 @@ def test_unit__decorators__ok__nominal_case():
     assert {"bar": 5} == serializer.dump(Decorated(foo="hello", bar=3))
 
     assert Decorated(foo="default", bar=1) == serializer.load({"bar": 3})
+
+def test_unit__exclude__ok__nominal_case():
+    @dataclasses.dataclass
+    class Exclude(object):
+        """Exclude test class"""
+
+        foo: str
+        bar: str
+
+    serializer = serpyco.Serializer(Exclude, exclude=["foo"])
+    assert {"bar": "foo"} == serializer.dump(Exclude(foo="bar", bar="foo"))
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Exclude test class",
+        "definitions": {},
+        "properties": {"bar": {"type": "string"}},
+        "required": ["bar"],
+        "type": "object",
+    } == serializer.json_schema()

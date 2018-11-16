@@ -35,6 +35,7 @@ class Validator(object):
         dataclass: type,
         many: bool = False,
         only: typing.Optional[typing.List[str]] = None,
+        exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Dict[type, FieldEncoder] = {},
     ) -> None:
         """
@@ -54,7 +55,11 @@ class Validator(object):
         self._fields: typing.List[_ValidatorField] = []
         for f in dataclasses.fields(dataclass):
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
-            if hints.ignore or (only and f.name not in only):
+            if (
+                hints.ignore
+                or (only and f.name not in only)
+                or (exclude and f.name in exclude)
+            ):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
