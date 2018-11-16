@@ -3,5 +3,6 @@ Cython==0.29
 dataslots
 flake8
 isort
+mypy
 pytest
 pytest-benchmark

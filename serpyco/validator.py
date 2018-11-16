@@ -3,8 +3,8 @@ import re
 import typing
 
 import dataclasses
-import rapidjson
-from serpyco.encoder import FieldEncoder
+import rapidjson  # type: ignore
+from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import JsonSchemaError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (
@@ -28,7 +28,7 @@ class Validator(object):
     Validates a dict/json string against a dataclass definition.
     """
 
-    _global_types: JsonDict = {}
+    _global_types: typing.Dict[type, typing.Any] = {}
 
     def __init__(
         self,
@@ -56,7 +56,10 @@ class Validator(object):
         self._types = type_encoders
         self._fields: typing.List[_ValidatorField] = []
         for f in dataclasses.fields(dataclass):
-            hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
+            if not f.metadata:
+                hints = FieldHints(dict_key=f.name)
+            else:
+                hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
             if (
                 hints.ignore
                 or (only and f.name not in only)
@@ -115,7 +118,9 @@ class Validator(object):
         del cls._global_types[type_]
 
     def _create_json_schema(
-        self, embeddable=False, parent_validators: typing.List["Validator"] = None
+        self,
+        embeddable: bool = False,
+        parent_validators: typing.Optional[typing.List["Validator"]] = None,
     ) -> dict:
         """Returns the JSON schema for the dataclass, along with the schema
         of any nested dataclasses within the "definitions" field.
@@ -138,13 +143,14 @@ class Validator(object):
                 field_type, parent_validators, vfield=vfield
             )
 
+            f = getattr(vfield.field, "default_factory")
             if vfield.field.default != dataclasses.MISSING:
                 val = vfield.field.default
                 if field_type in self._types:
                     val = self._types[field_type].dump(val)
                 field_schema["default"] = val
-            elif vfield.field.default_factory != dataclasses.MISSING:
-                val = vfield.field.default_factory()
+            elif f != dataclasses.MISSING:
+                val = f()
                 if field_type in self._types:
                     val = self._types[field_type].dump(val)
                 field_schema["default"] = val
@@ -329,15 +335,15 @@ class Validator(object):
     @staticmethod
     def _get_field_type_name(field_type: typing.Any) -> typing.Optional[str]:
         try:
-            return field_type.__name__
+            return str(field_type.__name__)
         except AttributeError:
             try:
-                return field_type._name
+                return str(field_type._name)
             except AttributeError:
                 return None
 
     @staticmethod
-    def _get_value(json_path: str, data):
+    def _get_value(json_path: str, data: typing.Any) -> typing.Any:
         components = json_path.split("/")[1:]
         for component in components:
             if isinstance(data, typing.Mapping):
@@ -349,7 +355,9 @@ class Validator(object):
         return data
 
     @staticmethod
-    def _get_definition_name(type_: type, only, exclude):
+    def _get_definition_name(
+        type_: type, only: typing.List[str], exclude: typing.List[str]
+    ) -> str:
         """
         Ensures that a definition name is unique even for the same type
         with different only/exclude parameters
@@ -402,8 +410,10 @@ class Validator(object):
                 + f" whose length is {le}"
             )
         elif "required" == schema_part_name:
-            props = set(schema_part) - set(d.keys())
-            props = map(lambda s: f'"{s}"', props)
+            props = list(
+                set(typing.cast(typing.List[str], schema_part)) - set(d.keys())
+            )
+            props = list(map(lambda s: f'"{s}"', props))
             missing = ", ".join(props)
             msg = f"is missing required properties {missing}"
         elif "enum" == schema_part_name:

@@ -18,6 +18,11 @@ black:
   script:
     - black --check .
 
+mypy:
+  stage: style
+  script:
+    - mypy --strict serpyco
+
 # isort:
 #   stage: style
 #   script:

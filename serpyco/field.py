@@ -38,13 +38,13 @@ class StringFormat(str, enum.Enum):
 
 
 def field(
-    dict_key: str = None,
+    dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
     description: typing.Optional[str] = None,
-    examples: typing.List[str] = None,
-    *args,
-    **kwargs,
+    examples: typing.Optional[typing.List[str]] = None,
+    *args: str,
+    **kwargs: typing.Any,
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on dataclass fields.
@@ -68,7 +68,7 @@ def field(
         if key in _field_hints_names and value is not None
     }
 
-    field_args = {
+    kwargs = {
         key: value for key, value in kwargs.items() if key not in _field_hints_names
     }
 
@@ -77,28 +77,28 @@ def field(
         ignore=ignore,
         getter=getter,
         description=description,
-        examples=examples,
+        examples=examples or [],
         **hints_args,
     )
 
-    metadata = field_args.get("metadata", {})
+    metadata = kwargs.get("metadata", {})
     metadata[_metadata_name] = hints
-    field_args["metadata"] = metadata
-    return dataclasses.field(*args, **field_args)
+    kwargs["metadata"] = metadata
+    return dataclasses.field(*args, **kwargs)  # type: ignore
 
 
 def string_field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
-    getter: typing.Callable = None,
+    getter: typing.Optional[typing.Callable] = None,
     description: typing.Optional[str] = None,
-    examples: typing.List[str] = None,
+    examples: typing.Optional[typing.List[str]] = None,
     format_: typing.Optional[StringFormat] = None,
     pattern: typing.Optional[str] = None,
     min_length: typing.Optional[int] = None,
     max_length: typing.Optional[int] = None,
-    *args,
-    **kwargs,
+    *args: str,
+    **kwargs: typing.Any,
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints for a str dataclass field.
@@ -137,13 +137,13 @@ def string_field(
 def number_field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
-    getter: typing.Callable = None,
+    getter: typing.Optional[typing.Callable] = None,
     description: typing.Optional[str] = None,
-    examples: typing.List[str] = None,
+    examples: typing.Optional[typing.List[str]] = None,
     minimum: typing.Optional[int] = None,
     maximum: typing.Optional[int] = None,
-    *args,
-    **kwargs,
+    *args: str,
+    **kwargs: typing.Any,
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints for a number (int/float)
@@ -180,11 +180,11 @@ def nested_field(
     exclude: typing.Optional[typing.List[str]] = None,
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
-    getter: typing.Callable = None,
+    getter: typing.Optional[typing.Callable] = None,
     description: typing.Optional[str] = None,
-    examples: typing.List[str] = None,
-    *args,
-    **kwargs,
+    examples: typing.Optional[typing.List[str]] = None,
+    *args: str,
+    **kwargs: typing.Any,
 ) -> dataclasses.Field:
     """
     Convenience function to setup Serializer hints on nested dataclass fields.

@@ -12,7 +12,11 @@ class DecoratorType(str, enum.Enum):
     POST_LOAD = "post_load"
 
 
-def pre_dump(method: typing.Callable[[object], object]):
+ObjCallable = typing.Callable[[object], object]
+DictCallable = typing.Callable[[dict], dict]
+
+
+def pre_dump(method: ObjCallable) -> ObjCallable:
     """
     This decorator can be applied to a callable taking one object
     and should return an object of the dataclass it is declared in.
@@ -24,7 +28,7 @@ def pre_dump(method: typing.Callable[[object], object]):
     return method
 
 
-def post_load(method: typing.Callable[[object], object]):
+def post_load(method: ObjCallable) -> ObjCallable:
     """
     This decorator can be applied to a callable taking one data class object
     and should return an object.
@@ -36,7 +40,7 @@ def post_load(method: typing.Callable[[object], object]):
     return method
 
 
-def pre_load(method: typing.Callable[[dict], dict]):
+def pre_load(method: DictCallable) -> DictCallable:
     """
     This decorator can be applied to a callable taking one dictionary
     and should return another dictionary.
@@ -49,7 +53,7 @@ def pre_load(method: typing.Callable[[dict], dict]):
     return method
 
 
-def post_dump(method: typing.Callable[[dict], dict]):
+def post_dump(method: DictCallable) -> DictCallable:
     """
     This decorator can be applied to a callable taking one dictionary
     and should return another dictionary.

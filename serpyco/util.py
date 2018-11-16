@@ -13,31 +13,34 @@ JSON_ENCODABLE_TYPES = {
 
 JsonEncodable = typing.Union[int, float, str, bool]
 
+TypeOrTypes = typing.Union[type, typing.Tuple[type]]
 
-def _issubclass_safe(field_type, types) -> bool:
+
+def _issubclass_safe(field_type: type, types: TypeOrTypes) -> bool:
     try:
         return issubclass(field_type, types)
     except (TypeError, AttributeError):
         return False
 
 
-def _is_generic(field_type, types) -> bool:
+def _is_generic(field_type: type, types: TypeOrTypes) -> bool:
     try:
-        return issubclass(field_type.__origin__, types)
+        return issubclass(getattr(field_type, "__origin__"), types)
     except (TypeError, AttributeError):
         return False
 
 
-def _is_union(field_type) -> bool:
+def _is_union(field_type: type) -> bool:
     try:
-        return field_type.__origin__ is typing.Union
+        return getattr(field_type, "__origin__") is typing.Union
     except AttributeError:
         return False
 
 
-def _is_optional(field_type) -> bool:
-    return (
-        _is_union(field_type)
-        and 2 == len(field_type.__args__)
-        and issubclass(field_type.__args__[1], type(None))
-    )
+def _is_optional(field_type: type) -> bool:
+    is_union = _is_union(field_type)
+    try:
+        args = getattr(field_type, "__args__")
+    except AttributeError:
+        return False
+    return is_union and 2 == len(args) and issubclass(args[1], type(None))

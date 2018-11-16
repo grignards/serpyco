@@ -6,3 +6,4 @@ __pycache__/
 _build/
 *.c
 *.so
+.mypy_cache/

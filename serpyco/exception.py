@@ -14,5 +14,5 @@ class NoEncoderError(BaseSerpycoError):
 
 
 class ValidationError(BaseSerpycoError):
-    def __init__(self, msg: str, args: typing.List[str] = None):
+    def __init__(self, msg: str, args: typing.Optional[typing.List[str]] = None):
         super().__init__(msg, args)
