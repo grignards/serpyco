@@ -280,7 +280,7 @@ def test_unit__json_schema__ok__with_many() -> None:
 
 
 def test_unit__json_schema__ok__cycle() -> None:
-    ser = serpyco.Serializer(First)
+    builder = serpyco.SchemaBuilder(First)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
@@ -295,7 +295,11 @@ def test_unit__json_schema__ok__cycle() -> None:
         "properties": {"second": {"$ref": "#/definitions/Second"}},
         "required": ["second"],
         "type": "object",
-    } == ser.json_schema()
+    } == builder.json_schema()
+    nested = builder.nested_builders()
+    assert 1 == len(nested)
+    assert "Second" == nested[0][0]
+    assert isinstance(nested[0][1], serpyco.SchemaBuilder)
 
 
 def test_unit__dump_json__ok__validate() -> None:

@@ -1,3 +1,4 @@
+import copy
 import enum
 import typing
 
@@ -53,6 +54,8 @@ class SchemaBuilder(object):
         self._exclude = exclude or []
         self._types = type_encoders
         self._fields: typing.List[_SchemaBuilderField] = []
+        self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
+        self._schema: dict = {}
         for f in dataclasses.fields(dataclass):
             if not f.metadata:
                 hints = FieldHints(dict_key=f.name)
@@ -73,11 +76,22 @@ class SchemaBuilder(object):
             (self._dataclass, self._many, tuple(self._only), tuple(self._exclude))
         )
 
+    def nested_builders(self) -> typing.List[typing.Tuple[str, "SchemaBuilder"]]:
+        """
+        Returns a the list of nested builders this builder has created.
+        Values are (definition name, builder) tuples.
+        """
+        if not self._nested_builders:
+            self._create_json_schema()
+        return list(self._nested_builders)
+
     def json_schema(self) -> JsonDict:
         """
         Returns the json schema built from this SchemaBuilder's dataclass.
         """
-        return self._create_json_schema()
+        if not self._schema:
+            self._schema = self._create_json_schema()
+        return copy.deepcopy(self._schema)
 
     @classmethod
     def register_global_type(cls, type_: type, encoder: FieldEncoder) -> None:
@@ -170,6 +184,10 @@ class SchemaBuilder(object):
                             only=vfield.hints.only,
                             exclude=vfield.hints.exclude,
                         )
+                        self._nested_builders.add((definition_name, sub))
+                        # Update our nested builders to get nested of nested builders
+                        self._nested_builders |= sub._nested_builders
+
                         item_schema = sub._create_json_schema(
                             embeddable=True, parent_builders=parent_builders
                         )
