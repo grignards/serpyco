@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import typing
 
 JsonDict = typing.Dict[str, typing.Any]
@@ -44,3 +46,15 @@ def _is_optional(field_type: type) -> bool:
     except AttributeError:
         return False
     return is_union and 2 == len(args) and issubclass(args[1], type(None))
+
+
+def _get_value(json_path: str, data: typing.Any) -> typing.Any:
+    components = json_path.split("/")[1:]
+    for component in components:
+        if isinstance(data, typing.Mapping):
+            data = data[component]
+        elif isinstance(data, typing.Sequence):
+            data = data[int(component)]
+        else:
+            raise ValueError("Got a data which is not a list or dict")
+    return data

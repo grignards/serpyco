@@ -1,22 +1,23 @@
 # -*- coding: utf-8 -*-
 
 __all__ = (
-    "Serializer",
-    "FieldEncoder",
+    "AbstractValidator",
     "BaseSerpycoError",
-    "ValidationError",
-    "JsonSchemaError",
+    "field",
+    "FieldEncoder",
+    "nested_field",
     "NoEncoderError",
+    "number_field",
     "post_dump",
     "post_load",
     "pre_dump",
     "pre_load",
-    "Validator",
-    "field",
+    "SchemaBuilder",
+    "SchemaError",
+    "Serializer",
     "string_field",
-    "number_field",
-    "nested_field",
     "StringFormat",
+    "ValidationError",
 )
 
 from serpyco.decorator import post_dump, post_load, pre_dump, pre_load
@@ -24,9 +25,10 @@ from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import (
     BaseSerpycoError,
     ValidationError,
-    JsonSchemaError,
+    SchemaError,
     NoEncoderError,
 )
 from serpyco.serializer import Serializer  # type: ignore
-from serpyco.validator import Validator
+from serpyco.schema import SchemaBuilder
 from serpyco.field import field, string_field, number_field, nested_field, StringFormat
+from serpyco.validator import AbstractValidator

@@ -5,7 +5,7 @@ class BaseSerpycoError(Exception):
     pass
 
 
-class JsonSchemaError(BaseSerpycoError):
+class SchemaError(BaseSerpycoError):
     pass
 
 

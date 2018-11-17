@@ -5,6 +5,7 @@
 # cython: wraparound=False
 # cython: nonecheck=False
 
+
 import datetime
 import enum
 import re
@@ -18,11 +19,12 @@ import rapidjson
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.encoder cimport FieldEncoder
-from serpyco.exception import ValidationError, NoEncoderError, JsonSchemaError
+from serpyco.exception import ValidationError, NoEncoderError
 from serpyco.field import FieldHints, _metadata_name
+from serpyco.schema import SchemaBuilder
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
 from serpyco.util import _is_generic, _is_optional, _is_union, _issubclass_safe
-from serpyco.validator import Validator
+from serpyco.validator import RapidJsonValidator
 
 
 cdef class SField:
@@ -68,7 +70,7 @@ cdef class Serializer(object):
         uuid.UUID: UuidFieldEncoder()
     }
     for f, e in _global_types.items():
-        Validator.register_global_type(f, e.json_schema())
+        SchemaBuilder.register_global_type(f, e)
 
     def __init__(
         self,
@@ -122,13 +124,15 @@ cdef class Serializer(object):
                 hints.getter
             ))
 
-        self._validator = Validator(
+        builder = SchemaBuilder(
             dataclass,
             many=many,
             only=only,
             exclude=exclude,
             type_encoders={**self._global_types, **self._types}
         )
+        self._validator = RapidJsonValidator(builder.json_schema())
+
 
         # pre/post load/dump methods
         self._post_dumpers = []
@@ -227,7 +231,7 @@ cdef class Serializer(object):
         Registers a encoder/decoder for the given type.
         """
         cls._global_types[field_type] = encoder
-        Validator.register_global_type(field_type, encoder.json_schema())
+        SchemaBuilder.register_global_type(field_type, encoder.json_schema())
 
     @classmethod
     def unregister_global_type(cls, field_type: type) -> None:
@@ -235,7 +239,7 @@ cdef class Serializer(object):
         Removes a previously registered encoder for the given type.
         """
         del cls._global_types[field_type]
-        Validator.unregister_global_type(field_type)
+        SchemaBuilder.unregister_global_type(field_type)
 
     def dataclass(self) -> type:
         """
@@ -559,7 +563,7 @@ cdef class DictFieldEncoder(FieldEncoder):
             }
         elif not self._key_encoder and self._value_encoder:
             return {
-                k: self._value_encoder(v)
+                k: self._value_encoder.dump(v)
                 for k, v in value.items()
             }
         else:
