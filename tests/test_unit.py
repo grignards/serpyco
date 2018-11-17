@@ -4,6 +4,7 @@ import datetime
 import enum
 import json
 import typing
+import uuid
 
 import pytest
 
@@ -41,6 +42,7 @@ class Types(object):
     number: float
     boolean: bool
     enum_: Enum
+    uid: uuid.UUID
     items: typing.List[str]
     nested: Simple
     nesteds: typing.List[Simple]
@@ -71,6 +73,7 @@ def types_object() -> Types:
         number=12.34,
         boolean=True,
         enum_=Enum.TWO,
+        uid=uuid.UUID("12345678123456781234567812345678"),
         items=["one", "two"],
         nested=Simple(name="bar"),
         nesteds=[Simple(name="hello"), Simple(name="world")],
@@ -89,6 +92,7 @@ def test_unit__dump__ok__nominal_case(types_object: Types) -> None:
         "number": 12.34,
         "boolean": True,
         "enum_": 2,
+        "uid": "12345678-1234-5678-1234-567812345678",
         "items": ["one", "two"],
         "nested": {"name": "bar"},
         "nesteds": [{"name": "hello"}, {"name": "world"}],
@@ -120,6 +124,7 @@ def test_unit__load__ok__nominal_case(types_object: Types) -> None:
             "number": 12.34,
             "boolean": True,
             "enum_": 2,
+            "uid": "12345678-1234-5678-1234-567812345678",
             "items": ["one", "two"],
             "nested": {"name": "bar"},
             "nesteds": [{"name": "hello"}, {"name": "world"}],
@@ -139,6 +144,7 @@ def test_unit__load_json__ok__nominal_case(types_object: Types) -> None:
                 "number": 12.34,
                 "boolean": True,
                 "enum_": 2,
+                "uid": "12345678-1234-5678-1234-567812345678",
                 "items": ["one", "two"],
                 "nested": {"name": "bar"},
                 "nesteds": [{"name": "hello"}, {"name": "world"}],
@@ -186,6 +192,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
                 "enum": [1, 2],
                 "type": "integer",
             },
+            "uid": {"type": "string", "format": "uuid"},
             "integer": {"type": "integer"},
             "items": {"items": {"type": "string"}, "type": "array"},
             "mapping": {"additionalProperties": {"type": "string"}, "type": "object"},
@@ -204,6 +211,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "number",
             "boolean",
             "enum_",
+            "uid",
             "items",
             "nested",
             "nesteds",
@@ -236,6 +244,7 @@ def test_unit__json_schema__ok__with_many() -> None:
                     "enum": [1, 2],
                     "type": "integer",
                 },
+                "uid": {"type": "string", "format": "uuid"},
                 "integer": {"type": "integer"},
                 "items": {"items": {"type": "string"}, "type": "array"},
                 "mapping": {
@@ -257,6 +266,7 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "number",
                 "boolean",
                 "enum_",
+                "uid",
                 "items",
                 "nested",
                 "nesteds",
@@ -332,8 +342,11 @@ def test_unit__union__ok__nominal_case() -> None:
 
     assert {"foo": 42} == serializer.dump(WithUnion(foo=42), validate=True)
     assert {"foo": "bar"} == serializer.dump(WithUnion(foo="bar"), validate=True)
+    assert WithUnion(foo="bar") == serializer.load({"foo": "bar"})
     with pytest.raises(serpyco.ValidationError):
         serializer.dump(WithUnion(foo=12.34), validate=True)
+    with pytest.raises(serpyco.ValidationError):
+        serializer.load({"foo": 12.34})
 
 
 def test_unit__tuple__ok__nominal_case() -> None:
@@ -606,22 +619,26 @@ def test_unit__decorators__ok__nominal_case():
         foo: typing.Optional[str]
         bar: int
 
+        @staticmethod
         @serpyco.pre_dump
         def add_two_to_bar(obj: "Decorated") -> "Decorated":
             obj.bar += 2
             return obj
 
+        @staticmethod
         @serpyco.post_dump
         def del_foo_key(data: dict) -> dict:
             del data["foo"]
             return data
 
+        @staticmethod
         @serpyco.pre_load
         def add_foo_if_missing(data: dict) -> dict:
             if "foo" not in data:
                 data["foo"] = "default"
             return data
 
+        @staticmethod
         @serpyco.post_load
         def substract_two_from_bar(obj: "Decorated") -> "Decorated":
             obj.bar -= 2
@@ -712,3 +729,29 @@ def test_unit__get_dict_object_path__ok__nominal_case():
 
     assert ["n", "bar"] == serializer.get_dict_path(["nested", "foo"])
     assert ["nested", "foo"] == serializer.get_object_path(["n", "bar"])
+
+
+def test_unit__dict_encoder__ok__nominal_case():
+    class CustomEncoder(serpyco.FieldEncoder):
+        def dump(self, value):
+            return value
+
+        def load(self, value):
+            return value
+
+    @dataclasses.dataclass
+    class Nested(object):
+        foo: str
+
+    @dataclasses.dataclass
+    class Parent(object):
+        mapping: typing.Dict[str, Nested]
+        custom: typing.Dict[int, Nested]
+
+    serializer = serpyco.Serializer(Parent, type_encoders={int: CustomEncoder()})
+    assert {
+        "mapping": {"foo": {"foo": "bar"}},
+        "custom": {42: {"foo": "foo"}},
+    } == serializer.dump(
+        Parent(mapping={"foo": Nested(foo="bar")}, custom={42: Nested(foo="foo")})
+    )
