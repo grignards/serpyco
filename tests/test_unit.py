@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
+import dataclasses
 import datetime
 import enum
 import json
 import typing
 import uuid
 
+import dateutil
 import pytest
 
-import dataclasses
-import dateutil
 import serpyco
 
 

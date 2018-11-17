@@ -3,8 +3,7 @@ import abc
 import re
 import typing
 
-import rapidjson
-
+import rapidjson  # type: ignore
 from serpyco.exception import ValidationError
 from serpyco.util import _get_value
 

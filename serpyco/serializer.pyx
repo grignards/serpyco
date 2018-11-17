@@ -133,7 +133,6 @@ cdef class Serializer(object):
         )
         self._validator = RapidJsonValidator(builder.json_schema())
 
-
         # pre/post load/dump methods
         self._post_dumpers = []
         self._pre_dumpers = []

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from dataclasses import dataclass
 from pprint import pprint
 
-from dataclasses import dataclass
 from serpyco import Serializer
 
 

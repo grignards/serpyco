@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
+import dataclasses
 import typing
 
 import dataslots
 
-import dataclasses
 import serpyco
 
 

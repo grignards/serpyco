@@ -1,6 +1,6 @@
 import typing
-
 from dataclasses import dataclass
+
 from serpyco import FieldEncoder, Serializer
 
 

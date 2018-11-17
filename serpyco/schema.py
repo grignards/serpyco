@@ -1,8 +1,7 @@
 import copy
+import dataclasses
 import enum
 import typing
-
-import dataclasses
 
 from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import SchemaError
