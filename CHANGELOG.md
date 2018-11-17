@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.12
+
+- split the schema building/validation code
+- allow access to nested-schema builders
+
 ## v0.11
 
 - Serializer can exclude fields (via `exclude` parameter)
