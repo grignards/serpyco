@@ -14,6 +14,8 @@
 #
 import os
 import sys
+from pkg_resources import get_distribution
+
 
 sys.path.insert(0, os.path.abspath("."))
 
@@ -24,10 +26,8 @@ project = "Serpyco"
 copyright = "2018, Sébastien Grignard"
 author = "Sébastien Grignard"
 
-# The short X.Y version
-version = "0.10"
-# The full version, including alpha/beta/rc tags
-release = ""
+release = get_distribution("serpyco").version
+version = ".".join(release.split(".")[:2])
 
 
 # -- General configuration ---------------------------------------------------

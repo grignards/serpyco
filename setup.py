@@ -6,7 +6,7 @@ requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'
 
 setup(
     name="serpyco",
-    version="0.11",
+    use_scm_version=True,
     description="Fast serialization of dataclasses using Cython",
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
@@ -17,6 +17,7 @@ setup(
         "setuptools>=18.0",
         "cython",
         "pytest-runner",
+        "setuptools_scm",
     ],
     install_requires=requires,
     tests_require=["pytest", "pytest-benchmark", "dataslots"],
