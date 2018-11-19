@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.13
+
+- string format can now be validated by providing a validation method
+
 ## v0.12
 
 - split the schema building/validation code
