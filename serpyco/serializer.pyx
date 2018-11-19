@@ -131,7 +131,10 @@ cdef class Serializer(object):
             exclude=exclude,
             type_encoders={**self._global_types, **self._types}
         )
-        self._validator = RapidJsonValidator(builder.json_schema())
+        self._validator = RapidJsonValidator(
+            builder.json_schema(),
+            builder.format_validators()
+        )
 
         # pre/post load/dump methods
         self._post_dumpers = []
@@ -173,8 +176,8 @@ cdef class Serializer(object):
     def get_dict_path(self, obj_path: typing.Sequence[str]) -> typing.List[str]:
         """
         Returns the path of a field in dumped dictionaries.
-        :param: obj_path list of field names, for example
-            ["foo", "bar"] to get the dict path of foo.bar.
+        :param obj_path: list of field names, for example
+        ["foo", "bar"] to get the dict path of foo.bar
         """
         cdef SField sfield
         cdef Serializer ser
@@ -198,8 +201,8 @@ cdef class Serializer(object):
     def get_object_path(self, dict_path: typing.Sequence[str]) -> typing.List[str]:
         """
         Returns the path of a field in loaded objects.
-        :param: dict_path list of dictionary keys, for example
-            ["foo", "bar"] to get the object path of {"foo": {"bar": 42}}.
+        :param dict_path: list of dictionary keys, for example
+        ["foo", "bar"] to get the object path of {"foo": {"bar": 42}}
         """
         cdef SField sfield
         cdef Serializer ser
@@ -274,6 +277,7 @@ cdef class Serializer(object):
 
         if validate:
             self._validator.validate(data)
+            self._validator.validate_formats(data, many=self._many)
 
         return data
 
@@ -293,6 +297,7 @@ cdef class Serializer(object):
         cdef object obj
         if validate:
             self._validator.validate(data)
+            self._validator.validate_formats(data, many=self._many)
 
         if self._many:
             datas = data
@@ -339,6 +344,7 @@ cdef class Serializer(object):
 
         if validate:
             self._validator.validate_json(js)
+            self._validator.validate_formats(data, many=self._many)
 
         return js
 
@@ -353,10 +359,13 @@ cdef class Serializer(object):
         cdef list datas
         cdef list objs
         cdef object obj
-        if validate:
-            self._validator.validate_json(js)
 
         data = rapidjson.loads(js)
+
+        if validate:
+            self._validator.validate_json(js)
+            self._validator.validate_formats(data, many=self._many)
+
         if self._many:
             datas = data
             for pre_load in self._pre_loaders:
@@ -574,18 +583,21 @@ cdef class DateTimeFieldEncoder(FieldEncoder):
     """Encodes datetimes to RFC3339 format"""
 
     cpdef inline dump(self, value):
-        out = value.isoformat()
+        try:
+            out = value.isoformat()
 
-        # Assume UTC if timezone is missing
-        if value.tzinfo is None:
-            return out + "+00:00"
-        return out
+            # Assume UTC if timezone is missing
+            if value.tzinfo is None:
+                return out + "+00:00"
+            return out
+        except AttributeError:
+            raise ValidationError(f"{value} is not a datetime.datetime instance")
 
     cpdef inline load(self, value):
-        if isinstance(value, datetime.datetime):
-            return value
-        else:
+        try:
             return dateutil.parser.parse(typing.cast(str, value))
+        except (ValueError, OverflowError):
+            raise ValidationError(f"{value} is not a valid datetime string")
 
     def json_schema(self) -> JsonDict:
         return {"type": "string", "format": "date-time"}

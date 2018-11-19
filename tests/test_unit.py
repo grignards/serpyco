@@ -6,6 +6,7 @@ import enum
 import json
 import typing
 import uuid
+from unittest import mock
 
 import dateutil
 import pytest
@@ -379,24 +380,43 @@ def test_unit__set__ok__nominal_case() -> None:
     assert WithSet(set_={"foo", "bar"}) == serializer.load({"set_": ["foo", "bar"]})
 
 
-def test_unit__string_field__ok__nominal_case() -> None:
+def test_unit__string_field_format__ok__nominal_case() -> None:
+    email = mock.Mock()
+    datetime_ = mock.Mock()
+
+    @dataclasses.dataclass
+    class Nested(object):
+        """Nested"""
+
+        name: str = serpyco.string_field(
+            format_=(serpyco.StringFormat.DATETIME, datetime_)
+        )
+
     @dataclasses.dataclass
     class WithStringField(object):
         """String field test class"""
 
         foo: str = serpyco.string_field(
-            format_=serpyco.StringFormat.EMAIL,
+            format_=(serpyco.StringFormat.EMAIL, email),
             pattern="^[A-Z]",
             min_length=3,
             max_length=24,
         )
+        nested: Nested
 
     serializer = serpyco.Serializer(WithStringField)
 
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
-        "definitions": {},
         "description": "String field test class",
+        "definitions": {
+            "Nested": {
+                "description": "Nested",
+                "properties": {"name": {"type": "string", "format": "date-time"}},
+                "required": ["name"],
+                "type": "object",
+            }
+        },
         "properties": {
             "foo": {
                 "type": "string",
@@ -404,13 +424,16 @@ def test_unit__string_field__ok__nominal_case() -> None:
                 "pattern": "^[A-Z]",
                 "minLength": 3,
                 "maxLength": 24,
-            }
+            },
+            "nested": {"$ref": "#/definitions/Nested"},
         },
-        "required": ["foo"],
+        "required": ["foo", "nested"],
         "type": "object",
     } == serializer.json_schema()
 
-    assert serializer.load({"foo": "Foo@foo.bar"})
+    assert serializer.load({"foo": "Foo@foo.bar", "nested": {"name": "foo"}})
+    email.assert_called_once_with("Foo@foo.bar")
+    datetime_.assert_called_once_with("foo")
 
 
 def test_unit__number_field__ok__nominal_case() -> None:

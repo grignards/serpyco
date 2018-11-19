@@ -17,6 +17,8 @@ JsonEncodable = typing.Union[int, float, str, bool]
 
 TypeOrTypes = typing.Union[type, typing.Tuple[type]]
 
+FormatValidator = typing.Callable[[str], None]
+
 
 def _issubclass_safe(field_type: type, types: TypeOrTypes) -> bool:
     try:
@@ -48,13 +50,16 @@ def _is_optional(field_type: type) -> bool:
     return is_union and 2 == len(args) and issubclass(args[1], type(None))
 
 
-def _get_value(json_path: str, data: typing.Any) -> typing.Any:
-    components = json_path.split("/")[1:]
-    for component in components:
-        if isinstance(data, typing.Mapping):
-            data = data[component]
-        elif isinstance(data, typing.Sequence):
-            data = data[int(component)]
+def _get_values(components: typing.List[str], data: typing.Any) -> typing.Any:
+    if not components:
+        yield data
+        return
+    component = components[0]
+    if isinstance(data, typing.Mapping):
+        yield from _get_values(components[1:], data[component])
+    elif isinstance(data, typing.Sequence):
+        if "*" == component:
+            for d in data:
+                yield from _get_values(components[1:], d)
         else:
-            raise ValueError("Got a data which is not a list or dict")
-    return data
+            yield from _get_values(components[1:], data[int(component)])

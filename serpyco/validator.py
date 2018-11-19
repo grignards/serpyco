@@ -5,7 +5,7 @@ import typing
 
 import rapidjson  # type: ignore
 from serpyco.exception import ValidationError
-from serpyco.util import _get_value
+from serpyco.util import FormatValidator, _get_values
 
 
 class AbstractValidator(abc.ABC):
@@ -14,12 +14,21 @@ class AbstractValidator(abc.ABC):
     Implementation shall raise serpyco.ValidationError().
     """
 
-    @abc.abstractmethod
+    def __init__(
+        self,
+        schema: dict,
+        format_validators: typing.Optional[
+            typing.List[typing.Tuple[str, FormatValidator]]
+        ] = None,
+    ) -> None:
+        self._schema = schema
+        self._format_validators = format_validators or []
+
     def json_schema(self) -> dict:
         """
         Returns the schema that this validator uses to validate.
         """
-        pass
+        return self._schema
 
     @abc.abstractmethod
     def validate_json(self, json_string: str) -> None:
@@ -35,18 +44,30 @@ class AbstractValidator(abc.ABC):
         """
         pass
 
+    def validate_formats(self, data: typing.Union[dict, list], many: bool) -> None:
+        if not many:
+            data = [data]
+
+        for d in data:
+            for path, validator in self._format_validators:
+                for value in _get_values(path.split("/")[1:], d):
+                    validator(value)
+
 
 class RapidJsonValidator(AbstractValidator):
     """
     Schema validator using rapidjson.
     """
 
-    def __init__(self, schema: dict) -> None:
-        self._schema = schema
+    def __init__(
+        self,
+        schema: dict,
+        format_validators: typing.Optional[
+            typing.List[typing.Tuple[str, FormatValidator]]
+        ] = None,
+    ) -> None:
+        super().__init__(schema, format_validators)
         self._validator = rapidjson.Validator(rapidjson.dumps(schema))
-
-    def json_schema(self) -> dict:
-        return self._schema
 
     def validate_json(self, json_string: str) -> None:
         try:
@@ -61,8 +82,10 @@ class RapidJsonValidator(AbstractValidator):
 
     def _get_error_message(self, exc: rapidjson.ValidationError, data: dict) -> str:
         schema_part_name, schema_path, data_path = exc.args
-        d = _get_value(data_path, data)
-        schema_part = _get_value(schema_path, self._schema)[schema_part_name]
+        d = _get_values(data_path.split("/")[1:], data)
+
+        schema_values = list(_get_values(schema_path.split("/")[1:], self._schema))
+        schema_part = schema_values[0][schema_part_name]
 
         # transform the json path to something more python-like
         data_path = data_path.replace("#", "data")

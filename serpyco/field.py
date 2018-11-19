@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
 import dataclasses
 import enum
 import typing
+
+from serpyco.util import FormatValidator
 
 _metadata_name = "serpyco"
 
@@ -12,7 +15,7 @@ class FieldHints(object):
     getter: typing.Optional[typing.Callable] = None
     description: typing.Optional[str] = None
     examples: typing.List[str] = dataclasses.field(default_factory=list)
-    format_: typing.Optional[str] = None
+    format_: typing.Optional[typing.Tuple[str, typing.Callable[[str], None]]] = None
     pattern: typing.Optional[str] = None
     min_length: typing.Optional[int] = None
     max_length: typing.Optional[int] = None
@@ -92,7 +95,7 @@ def string_field(
     getter: typing.Optional[typing.Callable] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
-    format_: typing.Optional[StringFormat] = None,
+    format_: typing.Optional[typing.Tuple[str, FormatValidator]] = None,
     pattern: typing.Optional[str] = None,
     min_length: typing.Optional[int] = None,
     max_length: typing.Optional[int] = None,
