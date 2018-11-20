@@ -88,7 +88,7 @@ class RapidJsonValidator(AbstractValidator):
 
     def _get_error_message(self, exc: rapidjson.ValidationError, data: dict) -> str:
         schema_part_name, schema_path, data_path = exc.args
-        d = _get_values(data_path.split("/")[1:], data)
+        d = list(_get_values(data_path.split("/")[1:], data))[0]
 
         schema_values = list(_get_values(schema_path.split("/")[1:], self._schema))
         schema_part = schema_values[0][schema_part_name]

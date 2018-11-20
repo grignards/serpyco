@@ -783,3 +783,14 @@ def test_unit__dict_encoder__ok__nominal_case():
     } == serializer.dump(
         Parent(mapping={"foo": Nested(foo="bar")}, custom={42: Nested(foo="foo")})
     )
+
+
+def test_unit__rapidjson_validator__err_message():
+    val = serpyco.validator.RapidJsonValidator(
+        {"type": "object", "properties": {"name": {"type": "string"}}}
+    )
+    with pytest.raises(
+        serpyco.ValidationError, match=r'data\["name"\]: has type int, expected string'
+    ):
+        val.validate({"name": 42})
+
