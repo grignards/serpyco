@@ -3,7 +3,7 @@ import dataclasses
 import enum
 import typing
 
-from serpyco.util import FormatValidator
+from serpyco.util import FieldValidator
 
 _metadata_name = "serpyco"
 
@@ -13,9 +13,10 @@ class FieldHints(object):
     dict_key: typing.Optional[str] = None
     ignore: bool = False
     getter: typing.Optional[typing.Callable] = None
+    validator: typing.Optional[FieldValidator] = None
     description: typing.Optional[str] = None
     examples: typing.List[str] = dataclasses.field(default_factory=list)
-    format_: typing.Optional[typing.Tuple[str, typing.Callable[[str], None]]] = None
+    format_: typing.Optional[str] = None
     pattern: typing.Optional[str] = None
     min_length: typing.Optional[int] = None
     max_length: typing.Optional[int] = None
@@ -43,6 +44,7 @@ def field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
+    validator: typing.Optional[FieldValidator] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     *args: str,
@@ -57,6 +59,9 @@ def field(
     :param ignore: if True, the field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param validator: callable used to perform custom validation of this field.
+        Will be called with values of the field, shall raise ValidationError()
+        if the value is not valid.
     :param description: a description for the field. Will be included
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
@@ -78,6 +83,7 @@ def field(
         dict_key=dict_key,
         ignore=ignore,
         getter=getter,
+        validator=validator,
         description=description,
         examples=examples or [],
         **hints_args,
@@ -93,9 +99,10 @@ def string_field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
+    validator: typing.Optional[FieldValidator] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
-    format_: typing.Optional[typing.Tuple[str, FormatValidator]] = None,
+    format_: typing.Optional[str] = None,
     pattern: typing.Optional[str] = None,
     min_length: typing.Optional[int] = None,
     max_length: typing.Optional[int] = None,
@@ -125,6 +132,7 @@ def string_field(
         dict_key,
         ignore,
         getter,
+        validator,
         description,
         examples,
         *args,
@@ -140,6 +148,7 @@ def number_field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
+    validator: typing.Optional[FieldValidator] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     minimum: typing.Optional[int] = None,
@@ -168,6 +177,7 @@ def number_field(
         dict_key,
         ignore,
         getter,
+        validator,
         description,
         examples,
         *args,
@@ -183,6 +193,7 @@ def nested_field(
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
+    validator: typing.Optional[FieldValidator] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     *args: str,
@@ -208,6 +219,7 @@ def nested_field(
         dict_key,
         ignore,
         getter,
+        validator,
         description,
         examples,
         *args,

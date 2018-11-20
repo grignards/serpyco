@@ -5,7 +5,7 @@ import typing
 
 import rapidjson  # type: ignore
 from serpyco.exception import ValidationError
-from serpyco.util import FormatValidator, _get_values
+from serpyco.util import FieldValidator, _get_values
 
 
 class AbstractValidator(abc.ABC):
@@ -17,12 +17,12 @@ class AbstractValidator(abc.ABC):
     def __init__(
         self,
         schema: dict,
-        format_validators: typing.Optional[
-            typing.List[typing.Tuple[str, FormatValidator]]
+        field_validators: typing.Optional[
+            typing.List[typing.Tuple[str, FieldValidator]]
         ] = None,
     ) -> None:
         self._schema = schema
-        self._format_validators = format_validators or []
+        self._field_validators = field_validators or []
 
     def json_schema(self) -> dict:
         """
@@ -44,12 +44,18 @@ class AbstractValidator(abc.ABC):
         """
         pass
 
-    def validate_formats(self, data: typing.Union[dict, list], many: bool) -> None:
+    def validate_user(self, data: typing.Union[dict, list], many: bool) -> None:
+        """
+        Validates the given data with the user-defined validators.
+        See :func:`serpyco.field()`.
+        :param data: data to validate, either a dict or a list of dicts (with many=True)
+        :param many: if true, data will be considered as a list
+        """
         if not many:
             data = [data]
 
         for d in data:
-            for path, validator in self._format_validators:
+            for path, validator in self._field_validators:
                 for value in _get_values(path.split("/")[1:], d):
                     validator(value)
 
@@ -62,11 +68,11 @@ class RapidJsonValidator(AbstractValidator):
     def __init__(
         self,
         schema: dict,
-        format_validators: typing.Optional[
-            typing.List[typing.Tuple[str, FormatValidator]]
+        field_validators: typing.Optional[
+            typing.List[typing.Tuple[str, FieldValidator]]
         ] = None,
     ) -> None:
-        super().__init__(schema, format_validators)
+        super().__init__(schema, field_validators)
         self._validator = rapidjson.Validator(rapidjson.dumps(schema))
 
     def validate_json(self, json_string: str) -> None:

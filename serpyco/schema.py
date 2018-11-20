@@ -8,7 +8,7 @@ from serpyco.exception import SchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (
     JSON_ENCODABLE_TYPES,
-    FormatValidator,
+    FieldValidator,
     JsonDict,
     _is_generic,
     _is_optional,
@@ -55,7 +55,7 @@ class SchemaBuilder(object):
         self._types = type_encoders
         self._fields: typing.List[_SchemaBuilderField] = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
-        self._format_validators: typing.List[typing.Tuple[str, FormatValidator]] = []
+        self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: dict = {}
         for f in dataclasses.fields(dataclass):
             if not f.metadata:
@@ -94,10 +94,10 @@ class SchemaBuilder(object):
             self._schema = self._create_json_schema()
         return copy.deepcopy(self._schema)
 
-    def format_validators(self) -> typing.List[typing.Tuple[str, FormatValidator]]:
+    def field_validators(self) -> typing.List[typing.Tuple[str, FieldValidator]]:
         if not self._schema:
             self._schema = self._create_json_schema()
-        return [(f"#/{name}", validator) for name, validator in self._format_validators]
+        return [(f"#/{name}", validator) for name, validator in self._field_validators]
 
     @classmethod
     def register_global_type(cls, type_: type, encoder: FieldEncoder) -> None:
@@ -199,8 +199,8 @@ class SchemaBuilder(object):
                         )
 
                         # Get the format validators defined in the sub-schema
-                        for sub_field_name, validator in sub._format_validators:
-                            self._format_validators.append(
+                        for sub_field_name, validator in sub._field_validators:
+                            self._field_validators.append(
                                 (vfield.field.name + "/" + sub_field_name, validator)
                             )
 
@@ -208,6 +208,12 @@ class SchemaBuilder(object):
                         definitions.update(item_schema)
             if is_required:
                 required.append(vfield.hints.dict_key)
+
+            if vfield.hints.validator:
+                self._field_validators.append(
+                    (vfield.field.name, vfield.hints.validator)
+                )
+
         schema = {"type": "object", "properties": properties}
         if required:
             schema["required"] = required
@@ -306,16 +312,12 @@ class SchemaBuilder(object):
                     ("min_length", "minLength"),
                     ("minimum", "minimum"),
                     ("maximum", "maximum"),
+                    ("format_", "format"),
                 ]
                 for hint_attr, schema_attr in validation_hints:
                     attr = getattr(vfield.hints, hint_attr)
                     if attr is not None:
                         field_schema[schema_attr] = attr
-                if vfield.hints.format_:
-                    field_schema["format"] = vfield.hints.format_[0]
-                    self._format_validators.append(
-                        (vfield.field.name, vfield.hints.format_[1])
-                    )
             elif _is_generic(field_type, typing.Mapping):
                 field_schema = {"type": "object"}
                 if field_type.__args__[1] is not typing.Any:

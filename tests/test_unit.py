@@ -380,7 +380,7 @@ def test_unit__set__ok__nominal_case() -> None:
     assert WithSet(set_={"foo", "bar"}) == serializer.load({"set_": ["foo", "bar"]})
 
 
-def test_unit__string_field_format__ok__nominal_case() -> None:
+def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
     email = mock.Mock()
     datetime_ = mock.Mock()
 
@@ -389,7 +389,7 @@ def test_unit__string_field_format__ok__nominal_case() -> None:
         """Nested"""
 
         name: str = serpyco.string_field(
-            format_=(serpyco.StringFormat.DATETIME, datetime_)
+            format_=serpyco.StringFormat.DATETIME, validator=datetime_
         )
 
     @dataclasses.dataclass
@@ -397,7 +397,8 @@ def test_unit__string_field_format__ok__nominal_case() -> None:
         """String field test class"""
 
         foo: str = serpyco.string_field(
-            format_=(serpyco.StringFormat.EMAIL, email),
+            format_=serpyco.StringFormat.EMAIL,
+            validator=email,
             pattern="^[A-Z]",
             min_length=3,
             max_length=24,

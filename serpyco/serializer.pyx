@@ -133,7 +133,7 @@ cdef class Serializer(object):
         )
         self._validator = RapidJsonValidator(
             builder.json_schema(),
-            builder.format_validators()
+            builder.field_validators()
         )
 
         # pre/post load/dump methods
@@ -277,7 +277,7 @@ cdef class Serializer(object):
 
         if validate:
             self._validator.validate(data)
-            self._validator.validate_formats(data, many=self._many)
+            self._validator.validate_user(data, many=self._many)
 
         return data
 
@@ -297,7 +297,7 @@ cdef class Serializer(object):
         cdef object obj
         if validate:
             self._validator.validate(data)
-            self._validator.validate_formats(data, many=self._many)
+            self._validator.validate_user(data, many=self._many)
 
         if self._many:
             datas = data
@@ -344,7 +344,7 @@ cdef class Serializer(object):
 
         if validate:
             self._validator.validate_json(js)
-            self._validator.validate_formats(data, many=self._many)
+            self._validator.validate_user(data, many=self._many)
 
         return js
 
@@ -364,7 +364,7 @@ cdef class Serializer(object):
 
         if validate:
             self._validator.validate_json(js)
-            self._validator.validate_formats(data, many=self._many)
+            self._validator.validate_user(data, many=self._many)
 
         if self._many:
             datas = data

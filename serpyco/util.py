@@ -17,7 +17,7 @@ JsonEncodable = typing.Union[int, float, str, bool]
 
 TypeOrTypes = typing.Union[type, typing.Tuple[type]]
 
-FormatValidator = typing.Callable[[str], None]
+FieldValidator = typing.Callable[[typing.Any], None]
 
 
 def _issubclass_safe(field_type: type, types: TypeOrTypes) -> bool:
