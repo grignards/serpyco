@@ -17,6 +17,21 @@ from serpyco.util import (
 )
 
 
+def default_get_definition_name(
+    type_: type, only: typing.List[str], exclude: typing.List[str]
+) -> str:
+    """
+    Ensures that a definition name is unique even for the same type
+    with different only/exclude parameters
+    """
+    name = type_.__name__
+    if only:
+        name += "_only_" + "_".join(only)
+    if exclude:
+        name += "_exclude_" + "_".join(exclude)
+    return name
+
+
 @dataclasses.dataclass
 class _SchemaBuilderField(object):
     field: dataclasses.Field
@@ -37,6 +52,9 @@ class SchemaBuilder(object):
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Dict[type, FieldEncoder] = {},
+        get_definition_name: typing.Callable[
+            [type, typing.List[str], typing.List[str]], str
+        ] = default_get_definition_name,
     ) -> None:
         """
         Creates a SchemaBuilder for the given dataclass.
@@ -47,6 +65,13 @@ class SchemaBuilder(object):
         :param only: if given, only the fields in this list will be used
         :param type_encoders: dictionary of {type: FieldEncoder()}
             used to get json schema for given type and dump default values.
+        :param get_definition_name: a callable that will be used to get the
+            schema definition name of a nested dataclass.
+            It will be called with:
+              - the type of the nested dataclass
+              - the `only` list defined for the nested dataclass
+              - the `exclude` list defined for the nested dataclass
+            It must return a string.
         """
         self._dataclass = dataclass
         self._many = many
@@ -57,6 +82,7 @@ class SchemaBuilder(object):
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: dict = {}
+        self._get_definition_name = get_definition_name
         for f in dataclasses.fields(dataclass):
             if not f.metadata:
                 hints = FieldHints(dict_key=f.name)
@@ -346,18 +372,3 @@ class SchemaBuilder(object):
             field_schema["examples"] = vfield.hints.examples
 
         return field_schema, required
-
-    @staticmethod
-    def _get_definition_name(
-        type_: type, only: typing.List[str], exclude: typing.List[str]
-    ) -> str:
-        """
-        Ensures that a definition name is unique even for the same type
-        with different only/exclude parameters
-        """
-        name = type_.__name__
-        if only:
-            name += "_only_" + "_".join(only)
-        if exclude:
-            name += "_exclude_" + "_".join(exclude)
-        return name
