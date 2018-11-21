@@ -5,6 +5,7 @@
 - all fields can now be additionally validated with a custom method (`serpyco.field`, `validator` argument)
 - fix validation error message
 - fix `get_object_path` and `get_dict_path` when used with `List` or `Dict` fields
+- custom nested dataclass definition names when building a schema with `SchemaBuilder`
 
 ## v0.13
 
