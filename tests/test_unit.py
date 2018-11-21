@@ -752,11 +752,17 @@ def test_unit__get_dict_object_path__ok__nominal_case():
     @dataclasses.dataclass
     class Parent(object):
         nested: Nested = serpyco.field(dict_key="n")
+        nesteds: typing.List[Nested] = serpyco.field(dict_key="ns")
+        mapped: typing.Dict[str, Nested] = serpyco.field(dict_key="mp")
 
     serializer = serpyco.Serializer(Parent)
 
     assert ["n", "bar"] == serializer.get_dict_path(["nested", "foo"])
     assert ["nested", "foo"] == serializer.get_object_path(["n", "bar"])
+    assert ["ns", "bar"] == serializer.get_dict_path(["nesteds", "foo"])
+    assert ["nesteds", "foo"] == serializer.get_object_path(["ns", "bar"])
+    assert ["mp", "bar"] == serializer.get_dict_path(["mapped", "foo"])
+    assert ["mapped", "foo"] == serializer.get_object_path(["mp", "bar"])
 
 
 def test_unit__dict_encoder__ok__nominal_case():
@@ -793,4 +799,3 @@ def test_unit__rapidjson_validator__err_message():
         serpyco.ValidationError, match=r'data\["name"\]: has type int, expected string'
     ):
         val.validate({"name": 42})
-

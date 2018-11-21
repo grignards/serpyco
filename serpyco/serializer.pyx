@@ -181,7 +181,6 @@ cdef class Serializer(object):
         """
         cdef SField sfield
         cdef Serializer ser
-        cdef DataClassFieldEncoder dencoder
         part = obj_path[0]
         for sfield in self._fields:
             if sfield.field_name==part:
@@ -192,10 +191,7 @@ cdef class Serializer(object):
         if 1 == len(obj_path):
             return [sfield.dict_key]
 
-        if not isinstance(sfield.encoder, DataClassFieldEncoder):
-            raise ValueError(f"field {part} is not a dataclass")
-        dencoder = sfield.encoder
-        ser = dencoder._serializer
+        ser = self._get_field_serializer(sfield)
         return [sfield.dict_key] + ser.get_dict_path(obj_path[1:])
 
     def get_object_path(self, dict_path: typing.Sequence[str]) -> typing.List[str]:
@@ -206,7 +202,6 @@ cdef class Serializer(object):
         """
         cdef SField sfield
         cdef Serializer ser
-        cdef DataClassFieldEncoder dencoder
         part = dict_path[0]
         for sfield in self._fields:
             if sfield.dict_key==part:
@@ -217,10 +212,7 @@ cdef class Serializer(object):
         if 1 == len(dict_path):
             return [sfield.field_name]
 
-        if not isinstance(sfield.encoder, DataClassFieldEncoder):
-            raise ValueError(f"field {sfield.field_name} is not a dataclass")
-        dencoder = sfield.encoder
-        ser = dencoder._serializer
+        ser = self._get_field_serializer(sfield)
         return [sfield.field_name] + ser.get_object_path(dict_path[1:])
 
     @classmethod
@@ -411,6 +403,23 @@ cdef class Serializer(object):
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
         return self._dataclass(**decoded_data)
+
+    def _get_field_serializer(self, sfield: SField) -> "Serializer":
+        cdef FieldEncoder encoder = sfield.encoder
+        cdef DataClassFieldEncoder dencoder
+        cdef IterableFieldEncoder iter_encoder
+        cdef DictFieldEncoder dict_encoder
+        encoder = sfield.encoder
+        if isinstance(encoder, IterableFieldEncoder):
+            iter_encoder = encoder
+            encoder = iter_encoder._item_encoder
+        elif isinstance(encoder, DictFieldEncoder):
+            dict_encoder = encoder
+            encoder = dict_encoder._value_encoder
+        if not isinstance(encoder, DataClassFieldEncoder):
+            raise ValueError(f"field {sfield.field_name} is not a dataclass")
+        dencoder = encoder
+        return dencoder._serializer
 
     def _get_encoder(self, field_type, hints):
         if field_type in self._types:
