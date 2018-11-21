@@ -58,7 +58,8 @@ It has only 2 (3 with python 3.6 dataclasses backport) dependencies:
 Documentation
 -------------
 
-.. Detailed documentation and examples can be found at `https://sgrignard.gitlab.io/serpyco/docs`_.
+- `Documentation <https://sgrignard.gitlab.io/serpyco/docs>`_
+- `API Reference <https://sgrignard.gitlab.io/serpyco/docs/api.html>`_
 
 Contributing
 ------------
