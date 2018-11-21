@@ -1,5 +1,11 @@
 # Serpyco changelog
 
+## v0.14
+
+- all fields can now be additionally validated with a custom method (`serpyco.field`, `validator` argument)
+- fix validation error message
+- fix `get_object_path` and `get_dict_path` when used with `List` or `Dict` fields
+
 ## v0.13
 
 - string format can now be validated by providing a validation method

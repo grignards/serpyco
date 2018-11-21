@@ -32,7 +32,6 @@ Serpyco works by analysing the dataclass fields and can recognize many types : `
 
 The main use-case for Serpyco is to serialize objects for an API, but it can be helpful whenever you need to transform objects to/from builtin Python types.
 
-.. Detailed documentation and examples can be found at `https://serpyco.readthedocs.org`_.
 
 Features
 --------
@@ -55,6 +54,11 @@ It has only 2 (3 with python 3.6 dataclasses backport) dependencies:
 
 - rapid-json: used for data validation and fast JSON dump/load
 - python-dateutil: used for serializing datetime objects.
+
+Documentation
+-------------
+
+.. Detailed documentation and examples can be found at `https://sgrignard.gitlab.io/serpyco/docs`_.
 
 Contributing
 ------------
