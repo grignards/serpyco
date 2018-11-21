@@ -818,3 +818,10 @@ def test_unit__field_cast_on_load__err_exception_during_casting():
     serializer = serpyco.Serializer(CastOnLoad)
     with pytest.raises(serpyco.ValidationError):
         serializer.load({"value": "hello"})
+
+
+def test_unit__valico_validator__ok__nominal_case():
+    val = serpyco.validator.ValicoValidator(
+        {"type": "object", "properties": {"name": {"type": "string"}}}
+    )
+    val.validate({"name": 42})

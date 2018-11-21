@@ -24,7 +24,7 @@ from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
 from serpyco.util import _is_generic, _is_optional, _is_union, _issubclass_safe
-from serpyco.validator import RapidJsonValidator
+from serpyco.validator import AbstractValidator, RapidJsonValidator
 
 
 cdef class SField:
@@ -194,6 +194,9 @@ cdef class Serializer(object):
             tuple(self._only),
             tuple(self._exclude)
         ))
+
+    def set_validator(self, validator: AbstractValidator):
+        self._validator = validator
 
     def json_schema(self) -> JsonDict:
         """

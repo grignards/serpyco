@@ -4,6 +4,7 @@ import re
 import typing
 
 import rapidjson  # type: ignore
+import valico
 from serpyco.exception import ValidationError
 from serpyco.util import FieldValidator, _get_values
 
@@ -139,3 +140,23 @@ class RapidJsonValidator(AbstractValidator):
         else:
             msg = f"validation error {exc}"
         return f"{data_path}: {msg}."
+
+
+class ValicoValidator(AbstractValidator):
+    def __init__(
+        self,
+        schema: dict,
+        field_validators: typing.Optional[
+            typing.List[typing.Tuple[str, FieldValidator]]
+        ] = None,
+    ) -> None:
+        super().__init__(schema, field_validators)
+
+    def validate_json(self, json_string: str) -> None:
+        valico.validate(rapidjson.loads(json_string), self._schema)
+
+    def validate(self, data: typing.Union[dict, list]) -> None:
+        valico.validate(data, self._schema)
+
+
+# class ValijsonValidator(AbstractValidator)

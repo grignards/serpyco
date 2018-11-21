@@ -36,6 +36,7 @@ class Dataclass(object):
 
 serializer = serpyco.Serializer(Dataclass)
 validator = serpyco.validator.RapidJsonValidator(serializer.json_schema())
+valico_validator = serpyco.validator.ValicoValidator(serializer.json_schema())
 test_object = Dataclass(
     name="Foo",
     value=42,
@@ -74,3 +75,11 @@ def test_validate(benchmark):
 
 def test_validate_json(benchmark):
     benchmark(validator.validate_json, test_json)
+
+
+def test_valico_validate(benchmark):
+    benchmark(valico_validator.validate, test_dict)
+
+
+def test_valico_validate_json(benchmark):
+    benchmark(valico_validator.validate_json, test_json)
