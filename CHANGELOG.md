@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.15
+
+- fields can now be cast to their declared type when loading (`serpyco.field`, `cast_on_load` argument)
+- small improvement in dump/load speed
+
 ## v0.14
 
 - all fields can now be additionally validated with a custom method (`serpyco.field`, `validator` argument)
