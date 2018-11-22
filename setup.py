@@ -34,6 +34,7 @@ setup(
     ext_modules=[
         Extension("serpyco.serializer", sources=["serpyco/serializer.pyx"]),
         Extension("serpyco.encoder", sources=["serpyco/encoder.pyx"]),
+        Extension("serpyco.val", sources=["serpyco/val.pyx"]),
     ],
     zip_safe=False,
 )
