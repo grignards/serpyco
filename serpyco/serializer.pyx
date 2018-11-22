@@ -73,7 +73,7 @@ cdef class Serializer(object):
     Serializer class for dataclasses instances.
     """
 
-    cdef list _fields
+    cdef tuple _fields
     cdef object _dataclass
     cdef bint _many
     cdef bint _omit_none
@@ -124,7 +124,7 @@ cdef class Serializer(object):
         self._exclude = exclude or []
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
-        self._fields = []
+        fields = []
         field_casters = []
 
         type_hints = typing.get_type_hints(dataclass)
@@ -140,7 +140,7 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type, hints)
-            self._fields.append(SField(
+            fields.append(SField(
                 f.name,
                 hints.dict_key,
                 encoder,
@@ -149,6 +149,7 @@ cdef class Serializer(object):
 
             if hints.cast_on_load:
                 field_casters.append(Caster(hints.dict_key, field_type))
+        self._fields = tuple(fields)
 
         builder = SchemaBuilder(
             dataclass,
@@ -684,13 +685,13 @@ cdef class UuidFieldEncoder(FieldEncoder):
 @cython.final
 cdef class UnionFieldEncoder(FieldEncoder):
 
-    cdef list _type_encoders
+    cdef tuple _type_encoders
 
     def __init__(
         self,
         type_encoders: typing.List[typing.Tuple[type, FieldEncoder]]
     ):
-        self._type_encoders = type_encoders
+        self._type_encoders = tuple(type_encoders)
 
     cpdef inline dump(self, value):
         for value_type, encoder in self._type_encoders:
