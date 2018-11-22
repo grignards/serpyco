@@ -24,6 +24,7 @@ class FieldHints(object):
     maximum: typing.Optional[int] = None
     only: typing.List[str] = dataclasses.field(default_factory=list)
     exclude: typing.List[str] = dataclasses.field(default_factory=list)
+    cast_on_load: bool = False
 
 
 _field_hints_names = set(f.name for f in dataclasses.fields(FieldHints))
@@ -45,6 +46,7 @@ def field(
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
     validator: typing.Optional[FieldValidator] = None,
+    cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     *args: str,
@@ -62,6 +64,8 @@ def field(
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
         if the value is not valid.
+    :param cast_on_load: when true, dict values for this field are constructed
+        from the field's type.
     :param description: a description for the field. Will be included
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
@@ -84,6 +88,7 @@ def field(
         ignore=ignore,
         getter=getter,
         validator=validator,
+        cast_on_load=cast_on_load,
         description=description,
         examples=examples or [],
         **hints_args,
@@ -100,6 +105,7 @@ def string_field(
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
     validator: typing.Optional[FieldValidator] = None,
+    cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     format_: typing.Optional[str] = None,
@@ -118,6 +124,11 @@ def string_field(
     :param ignore: if True, this field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param validator: callable used to perform custom validation of this field.
+        Will be called with values of the field, shall raise ValidationError()
+        if the value is not valid.
+    :param cast_on_load: when true, dict values for this field are constructed
+        from the field's type.
     :param description: a description for the field. Will be included
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
@@ -133,6 +144,7 @@ def string_field(
         ignore,
         getter,
         validator,
+        cast_on_load,
         description,
         examples,
         *args,
@@ -149,6 +161,7 @@ def number_field(
     ignore: bool = False,
     getter: typing.Optional[typing.Callable] = None,
     validator: typing.Optional[FieldValidator] = None,
+    cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     minimum: typing.Optional[int] = None,
@@ -166,6 +179,11 @@ def number_field(
     :param ignore: if True, this field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param validator: callable used to perform custom validation of this field.
+        Will be called with values of the field, shall raise ValidationError()
+        if the value is not valid.
+    :param cast_on_load: when true, dict values for this field are constructed
+        from the field's type.
     :param description: a description for the field. Will be included
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
@@ -178,6 +196,7 @@ def number_field(
         ignore,
         getter,
         validator,
+        cast_on_load,
         description,
         examples,
         *args,
@@ -210,6 +229,9 @@ def nested_field(
     :param ignore: if True, the field won't be considered by serpico
     :param getter: callable used to get values of this field.
         Must take one object argument
+    :param validator: callable used to perform custom validation of this field.
+        Will be called with values of the field, shall raise ValidationError()
+        if the value is not valid.
     :param description: a description for the field. Will be included
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
@@ -220,6 +242,7 @@ def nested_field(
         ignore,
         getter,
         validator,
+        False,
         description,
         examples,
         *args,

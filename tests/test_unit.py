@@ -310,9 +310,9 @@ def test_unit__dump_json__ok__validate() -> None:
     assert serializer.dump_json(Simple(name="foo"), validate=True)
 
     with pytest.raises(serpyco.ValidationError):
-        serializer.dump(Simple(name=42), validate=True)
+        serializer.dump(Simple(name=42), validate=True)  # type: ignore
     with pytest.raises(serpyco.ValidationError):
-        serializer.dump_json(Simple(name=42), validate=True)
+        serializer.dump_json(Simple(name=42), validate=True)  # type: ignore
 
 
 def test_unit__load_json__ok__validate() -> None:
@@ -349,7 +349,7 @@ def test_unit__union__ok__nominal_case() -> None:
     assert {"foo": "bar"} == serializer.dump(WithUnion(foo="bar"), validate=True)
     assert WithUnion(foo="bar") == serializer.load({"foo": "bar"})
     with pytest.raises(serpyco.ValidationError):
-        serializer.dump(WithUnion(foo=12.34), validate=True)
+        serializer.dump(WithUnion(foo=12.34), validate=True)  # type: ignore
     with pytest.raises(serpyco.ValidationError):
         serializer.load({"foo": 12.34})
 
@@ -359,7 +359,7 @@ def test_unit__tuple__ok__nominal_case() -> None:
     class WithTuple(object):
         """Tuple test class"""
 
-        tuple_: typing.Tuple[str]
+        tuple_: typing.Tuple[str, str]
 
     serializer = serpyco.Serializer(WithTuple)
 
@@ -799,3 +799,22 @@ def test_unit__rapidjson_validator__err_message():
         serpyco.ValidationError, match=r'data\["name"\]: has type int, expected string'
     ):
         val.validate({"name": 42})
+
+
+def test_unit__field_cast_on_load__ok__nominal_case():
+    @dataclasses.dataclass
+    class CastOnLoad(object):
+        value: int = serpyco.field(cast_on_load=True)
+
+    serializer = serpyco.Serializer(CastOnLoad)
+    assert CastOnLoad(value=42) == serializer.load({"value": "42"})
+
+
+def test_unit__field_cast_on_load__err_exception_during_casting():
+    @dataclasses.dataclass
+    class CastOnLoad(object):
+        value: int = serpyco.field(cast_on_load=True)
+
+    serializer = serpyco.Serializer(CastOnLoad)
+    with pytest.raises(serpyco.ValidationError):
+        serializer.load({"value": "hello"})

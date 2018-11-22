@@ -321,6 +321,28 @@ before and after either loading or dumping:
     >>> serializer.dump(Custom(firstname="foo", lastname="bar"))
     {'name': 'foo bar'}
 
+
+Type casting when loading
+=========================
+
+In some cases it is useful to be able to accept field values that can be cast
+to the field's type. This is possible by setting the `cast_on_load=True`
+argument of the :func:`serpyco.field` function:
+
+.. code-block:: python
+
+    @dataclasses.dataclass
+    class CastOnLoad(object):
+        value: int = serpyco.field(cast_on_load=True)
+
+    serializer = serpyco.Serializer(CastOnLoad)
+    >>> serializer.load({"value": "42"})
+    CastOnLoad(value=42)
+
+:class:`ValidationError` will be raised if any exception is caught
+during the cast of the value.
+
+
 Serialize objects which are not dataclass instances
 ===================================================
 

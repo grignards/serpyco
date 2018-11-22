@@ -46,6 +46,27 @@ cdef class SField:
         self.getter = getter
 
 
+cdef class Caster(object):
+    cdef str dict_key
+    cdef object caster
+
+    def __cinit__(self, str dict_key, object caster):
+        self.dict_key = dict_key
+        self.caster = caster
+
+cdef inline void cast_fields(tuple casters, dict data):
+    cdef Caster caster
+    for caster in casters:
+        try:
+            v = data[caster.dict_key]
+        except KeyError:
+            continue
+        try:
+            data[caster.dict_key] = caster.caster(v)
+        except Exception as exc:
+            raise ValidationError(f"Could not cast field {caster.dict_key}: {exc}")
+
+
 @cython.final
 cdef class Serializer(object):
     """
@@ -62,6 +83,7 @@ cdef class Serializer(object):
     cdef list _post_dumpers
     cdef list _pre_loaders
     cdef list _post_loaders
+    cdef tuple _field_casters
     cdef dict _types
     cdef list _only
     cdef list _exclude
@@ -103,6 +125,7 @@ cdef class Serializer(object):
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
         self._fields = []
+        field_casters = []
 
         type_hints = typing.get_type_hints(dataclass)
         for f in dataclasses.fields(dataclass):
@@ -123,6 +146,9 @@ cdef class Serializer(object):
                 encoder,
                 hints.getter
             ))
+
+            if hints.cast_on_load:
+                field_casters.append(Caster(hints.dict_key, field_type))
 
         builder = SchemaBuilder(
             dataclass,
@@ -157,6 +183,7 @@ cdef class Serializer(object):
                     raise ValueError(f"Unknown decorator type {tag}")
             except AttributeError:
                 continue
+        self._field_casters = tuple(field_casters)
 
     def __hash__(self):
         return hash((
@@ -258,18 +285,21 @@ cdef class Serializer(object):
             for pre_dump in self._pre_dumpers:
                 objs = map(pre_dump, objs)
             data = [self._dump(o) for o in objs]
-            for post_dump in self._post_dumpers:
-                data = map(post_dump, data)
         else:
             for pre_dump in self._pre_dumpers:
                 obj = pre_dump(obj)
             data = self._dump(obj)
-            for post_dump in self._post_dumpers:
-                data = post_dump(data)
 
         if validate:
             self._validator.validate(data)
             self._validator.validate_user(data, many=self._many)
+
+        if self._many:
+            for post_dump in self._post_dumpers:
+                data = map(post_dump, data)
+        else:
+            for post_dump in self._post_dumpers:
+                data = post_dump(data)
 
         return data
 
@@ -287,21 +317,31 @@ cdef class Serializer(object):
         """
         cdef list datas
         cdef object obj
+
+        if self._many:
+            datas = data
+            if self._field_casters:
+                for data in datas:
+                    cast_fields(self._field_casters, data)
+            for pre_load in self._pre_loaders:
+                datas = map(pre_load, datas)
+            data = datas
+        else:
+            if self._field_casters:
+                cast_fields(self._field_casters, data)
+            for pre_load in self._pre_loaders:
+                data = pre_load(data)
+
         if validate:
             self._validator.validate(data)
             self._validator.validate_user(data, many=self._many)
 
         if self._many:
-            datas = data
-            for pre_load in self._pre_loaders:
-                datas = map(pre_load, datas)
             objs = [self._load(d) for d in datas]
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
             return objs
 
-        for pre_load in self._pre_loaders:
-            data = pre_load(data)
         obj = self._load(data)
         for post_load in self._post_loaders:
             obj = post_load(obj)
@@ -318,27 +358,36 @@ cdef class Serializer(object):
         :param validate: if True, the dumped data will be validated
         """
         cdef list objs
+
         if self._many:
             objs = obj
             for pre_dump in self._pre_dumpers:
                 objs = map(pre_dump, objs)
             data = [self._dump(o) for o in objs]
-            for post_dump in self._post_dumpers:
-                data = map(post_dump, data)
         else:
             for pre_dump in self._pre_dumpers:
                 obj = pre_dump(obj)
             data = self._dump(obj)
-            for post_dump in self._post_dumpers:
-                data = post_dump(data)
 
+        # Needed to validate
         js = rapidjson.dumps(data)
 
         if validate:
             self._validator.validate_json(js)
             self._validator.validate_user(data, many=self._many)
 
-        return js
+        if not self._post_dumpers:
+            return js
+
+        if self._many:
+            for post_dump in self._post_dumpers:
+                data = map(post_dump, data)
+        else:
+            for post_dump in self._post_dumpers:
+                data = post_dump(data)
+
+        # We need to dump in JSON again as post_dump can modify data.
+        return rapidjson.dumps(data)
 
     cpdef inline load_json(self, js: str, validate: bool=True):
         """
@@ -354,21 +403,28 @@ cdef class Serializer(object):
 
         data = rapidjson.loads(js)
 
+        if self._many:
+            datas = data
+            if self._field_casters:
+                datas = [cast_fields(self._field_casters, data) for data in datas]
+            for pre_load in self._pre_loaders:
+                datas = map(pre_load, datas)
+            data = datas
+        else:
+            if self._field_casters:
+                data = cast_fields(self._field_casters, data)
+            for pre_load in self._pre_loaders:
+                data = pre_load(data)
+
         if validate:
             self._validator.validate_json(js)
             self._validator.validate_user(data, many=self._many)
 
         if self._many:
-            datas = data
-            for pre_load in self._pre_loaders:
-                datas = map(pre_load, datas)
             objs = [self._load(d) for d in datas]
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
             return objs
-
-        for pre_load in self._pre_loaders:
-            data = pre_load(data)
         obj = self._load(data)
         for post_load in self._post_loaders:
             obj = post_load(obj)
