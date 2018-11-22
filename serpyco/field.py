@@ -133,7 +133,10 @@ def string_field(
         in the generated JSON schema
     :param examples: a list of example usages for the field. Will be included
         in the generated JSON schema
-    :param format_: additional semantic validation for strings
+    :param format_: additional semantic validation for strings.
+        Currently only used to better document the JSON schema, if you need
+        special validation for a string, use a validator callable.
+
     :param pattern: restricts the strings of this field to the
         given regular expression
     :param min_length: minimum string length

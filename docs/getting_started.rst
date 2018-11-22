@@ -339,13 +339,41 @@ argument of the :func:`serpyco.field` function:
     >>> serializer.load({"value": "42"})
     CastOnLoad(value=42)
 
-:class:`ValidationError` will be raised if any exception is caught
+:class:`serpyco.ValidationError` will be raised if any exception is caught
 during the cast of the value.
 
 
 Serialize objects which are not dataclass instances
 ===================================================
 
-Serpyco is made to serialize dataclass objects, but you can also use it to dump your existing classes:
+Serpyco is primarly made to serialize dataclass objects, but you can also use it to dump/load your existing classes:
 
-...
+.. code-block:: python
+
+    class Existing(object):
+        def __init__(self, name: str, value: int) -> None:
+            self.name = name
+            self.value = value
+
+        def __repr__(self) -> str:
+            return f"Existing(name={self.name}, value={self.value})"
+
+
+    @dataclasses.dataclass
+    class Schema(object):
+        name: str
+        value: int
+
+        @staticmethod
+        @serpyco.post_load
+        def create_existing(obj: "Schema") -> Existing:
+            return Existing(obj.name, obj.value)
+
+
+    serializer = serpyco.Serializer(Schema)
+    
+    >>> serializer.dump(Existing(name="hello", value=42))
+    {'name': 'hello', 'value': 42}
+
+    >>> serializer.load({"name": "hello", "value": 42})
+    Existing(name=hello, value=42)
