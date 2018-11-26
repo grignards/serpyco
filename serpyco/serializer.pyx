@@ -54,7 +54,7 @@ cdef class Caster(object):
         self.dict_key = dict_key
         self.caster = caster
 
-cdef inline void cast_fields(tuple casters, dict data):
+cdef inline int cast_fields(tuple casters, dict data) except -1:
     cdef Caster caster
     for caster in casters:
         try:
@@ -407,13 +407,14 @@ cdef class Serializer(object):
         if self._many:
             datas = data
             if self._field_casters:
-                datas = [cast_fields(self._field_casters, data) for data in datas]
+                for data in datas:
+                    cast_fields(self._field_casters, data)
             for pre_load in self._pre_loaders:
                 datas = map(pre_load, datas)
             data = datas
         else:
             if self._field_casters:
-                data = cast_fields(self._field_casters, data)
+                cast_fields(self._field_casters, data)
             for pre_load in self._pre_loaders:
                 data = pre_load(data)
 
