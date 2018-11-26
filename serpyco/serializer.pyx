@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-# cython: boundscheck=False
 # cython: language_level=3
 # cython: embedsignature=True
 # cython: wraparound=False
 # cython: nonecheck=False
+# cython: boundscheck=False
 
 
 import datetime
@@ -484,6 +484,8 @@ cdef class Serializer(object):
             return self._types[field_type]
         elif field_type in self._global_types:
             return self._global_types[field_type]
+        elif typing.Any == field_type:
+            return None
         elif _issubclass_safe(field_type, enum.Enum):
             # Must be first as enums can inherit from another type
             return EnumFieldEncoder(field_type)
@@ -503,6 +505,20 @@ cdef class Serializer(object):
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
+        elif (
+            _is_generic(field_type, typing.Tuple)
+            and (
+                len(field_type.__args__)!=2
+                or field_type.__args__[len(field_type.__args__)-1] is not ...
+            )
+        ):
+            # Special case for tuple with fixed-length argument list
+            item_encoders = [
+                self._get_encoder(arg_type, hints)
+                for arg_type in field_type.__args__
+            ]
+            return FixedTupleFieldEncoder(item_encoders)
+            # tuples defined with ... are handled by the following elif
         elif _is_generic(field_type, typing.Iterable):
             item_encoder = self._get_encoder(field_type.__args__[0], hints)
             return IterableFieldEncoder(item_encoder, field_type)
@@ -565,6 +581,45 @@ cdef class DataClassFieldEncoder(FieldEncoder):
 
     def json_schema(self) -> JsonDict:
         return self.serializer.json_schema()
+
+
+@cython.final
+cdef class FixedTupleFieldEncoder(FieldEncoder):
+    cdef tuple _item_encoders
+    cdef int _item_encoders_count
+
+    def __init__(self, item_encoders):
+        self._item_encoders = tuple(item_encoders)
+        self._item_encoders_count = len(self._item_encoders)
+
+    cpdef inline load(self, value: typing.Any):
+        cdef FieldEncoder encoder
+        cdef int i
+        decoded = []
+        print(len(value))
+        if len(value) != self._item_encoders_count:
+            raise ValidationError("Invalid number of items for tuple")
+        for i in range(0, self._item_encoders_count):
+            encoder = self._item_encoders[i]
+            if encoder:
+                decoded.append(encoder.load(value[i]))
+            else:
+                decoded.append(value[i])
+        return tuple(decoded)
+
+    cpdef inline dump(self, value: typing.Any):
+        cdef FieldEncoder encoder
+        cdef int i
+        encoded = []
+        if len(value) != self._item_encoders_count:
+            raise ValidationError("Invalid number of items for tuple")
+        for i in range(0, self._item_encoders_count):
+            encoder = self._item_encoders[i]
+            if encoder:
+                encoded.append(encoder.dump(value[i]))
+            else:
+                encoded.append(value[i])
+        return encoded
 
 
 @cython.final
