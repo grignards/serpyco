@@ -15,7 +15,9 @@ JSON_ENCODABLE_TYPES = {
 
 JsonEncodable = typing.Union[int, float, str, bool]
 
-TypeOrTypes = typing.Union[type, typing.Tuple[type]]
+TypeOrTypes = typing.Union[
+    type, typing.Tuple[typing.Union[type, typing.Tuple[typing.Any, ...]], ...]
+]
 
 FieldValidator = typing.Callable[[typing.Any], None]
 

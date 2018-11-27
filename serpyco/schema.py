@@ -294,7 +294,9 @@ class SchemaBuilder(object):
                 )
             field_schema = {"$ref": ref}
         else:
-            if _is_optional(field_type):
+            if typing.Any == field_type:
+                field_schema = {}
+            elif _is_optional(field_type):
                 field_schema = {
                     "anyOf": [
                         self._get_field_schema(
@@ -346,18 +348,31 @@ class SchemaBuilder(object):
                         field_schema[schema_attr] = attr
             elif _is_generic(field_type, typing.Mapping):
                 field_schema = {"type": "object"}
-                if field_type.__args__[1] is not typing.Any:
-                    add = self._get_field_schema(
-                        field_type.__args__[1], parent_builders, vfield
-                    )[0]
-                    field_schema["additionalProperties"] = add
+                add = self._get_field_schema(
+                    field_type.__args__[1], parent_builders, vfield
+                )[0]
+                field_schema["additionalProperties"] = add
+            elif _is_generic(field_type, tuple) and (
+                len(field_type.__args__) != 2
+                or field_type.__args__[len(field_type.__args__) - 1] is not ...
+            ):
+                arg_len = len(field_type.__args__)
+                items = [
+                    self._get_field_schema(arg_type, parent_builders, vfield)[0]
+                    for arg_type in field_type.__args__
+                ]
+                field_schema = {
+                    "type": "array",
+                    "minItems": arg_len,
+                    "maxItems": arg_len,
+                    "items": items,
+                }
+
             elif _is_generic(field_type, typing.Iterable):
                 field_schema = {"type": "array"}
-                if field_type.__args__[0] is not typing.Any:
-                    items = self._get_field_schema(
-                        field_type.__args__[0], parent_builders, vfield
-                    )[0]
-                    field_schema["items"] = items
+                field_schema["items"] = self._get_field_schema(
+                    field_type.__args__[0], parent_builders, vfield
+                )[0]
             elif hasattr(field_type, "__supertype__"):  # NewType fields
                 field_schema, _ = self._get_field_schema(
                     field_type.__supertype__, parent_builders, vfield

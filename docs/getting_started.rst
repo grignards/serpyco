@@ -332,12 +332,12 @@ argument of the :func:`serpyco.field` function:
 .. code-block:: python
 
     @dataclasses.dataclass
-    class CastOnLoad(object):
+    class CastedOnLoad(object):
         value: int = serpyco.field(cast_on_load=True)
 
-    serializer = serpyco.Serializer(CastOnLoad)
+    serializer = serpyco.Serializer(CastedOnLoad)
     >>> serializer.load({"value": "42"})
-    CastOnLoad(value=42)
+    CastedOnLoad(value=42)
 
 :class:`serpyco.ValidationError` will be raised if any exception is caught
 during the cast of the value.

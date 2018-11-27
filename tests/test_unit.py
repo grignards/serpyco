@@ -359,10 +359,43 @@ def test_unit__tuple__ok__nominal_case() -> None:
     class WithTuple(object):
         """Tuple test class"""
 
-        tuple_: typing.Tuple[str, str]
+        tuple_: typing.Tuple[str, int]
 
     serializer = serpyco.Serializer(WithTuple)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Tuple test class",
+        "properties": {
+            "tuple_": {
+                "type": "array",
+                "items": [{"type": "string"}, {"type": "integer"}],
+                "minItems": 2,
+                "maxItems": 2,
+            }
+        },
+        "required": ["tuple_"],
+        "type": "object",
+    } == serializer.json_schema()
+    assert WithTuple(tuple_=("foo", 1)) == serializer.load({"tuple_": ["foo", 1]})
 
+
+def test_unit__uniform_tuple__ok__nominal_case() -> None:
+    @dataclasses.dataclass
+    class WithTuple(object):
+        """Tuple test class"""
+
+        tuple_: typing.Tuple[str, ...]
+
+    serializer = serpyco.Serializer(WithTuple)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Tuple test class",
+        "properties": {"tuple_": {"type": "array", "items": {"type": "string"}}},
+        "required": ["tuple_"],
+        "type": "object",
+    } == serializer.json_schema()
     assert WithTuple(tuple_=("foo", "bar")) == serializer.load(
         {"tuple_": ["foo", "bar"]}
     )
