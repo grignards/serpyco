@@ -1,5 +1,11 @@
 # Serpyco changelog
 
+## v0.15.1
+
+- fix: custom definition name in JSON schema
+- fix: `Tuple` is now handled properly
+- fix: exceptions caught during cast_on_load are propagated to the calling code
+
 ## v0.15
 
 - fields can now be cast to their declared type when loading (`serpyco.field`, `cast_on_load` argument)
