@@ -190,15 +190,15 @@ class SchemaBuilder(object):
                 item_types = [field_type.__args__[0]]
 
             for item_type in item_types:
+                if not dataclasses.is_dataclass(item_type):
+                    continue
+
                 # Prevent recursion from forward refs &
                 # circular type dependencies
                 definition_name = self._get_definition_name(
                     item_type, vfield.hints.only, vfield.hints.exclude
                 )
-                if (
-                    dataclasses.is_dataclass(item_type)
-                    and definition_name not in definitions
-                ):
+                if definition_name not in definitions:
                     for builder in parent_builders:
                         if hash(builder) == hash(
                             (
@@ -215,6 +215,7 @@ class SchemaBuilder(object):
                             type_encoders=self._types,
                             only=vfield.hints.only,
                             exclude=vfield.hints.exclude,
+                            get_definition_name=self._get_definition_name,
                         )
                         self._nested_builders.add((definition_name, sub))
                         # Update our nested builders to get nested of nested builders

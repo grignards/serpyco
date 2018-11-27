@@ -851,3 +851,37 @@ def test_unit__field_cast_on_load__err_exception_during_casting():
     serializer = serpyco.Serializer(CastOnLoad)
     with pytest.raises(serpyco.ValidationError):
         serializer.load({"value": "hello"})
+
+
+def test_unit__custom_definition_name__ok__nominal_case():
+    @dataclasses.dataclass
+    class Nested(object):
+        """Nested"""
+
+        value: int
+
+    @dataclasses.dataclass
+    class Class(object):
+        """Class"""
+
+        nested: Nested
+
+    get_definition_name = mock.Mock(return_value="Custom")
+    builder = serpyco.SchemaBuilder(Class, get_definition_name=get_definition_name)
+
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "Custom": {
+                "description": "Nested",
+                "properties": {"value": {"type": "integer"}},
+                "required": ["value"],
+                "type": "object",
+            }
+        },
+        "description": "Class",
+        "properties": {"nested": {"$ref": "#/definitions/Custom"}},
+        "required": ["nested"],
+        "type": "object",
+    } == builder.json_schema()
+    get_definition_name.assert_called_with(Nested, [], [])
