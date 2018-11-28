@@ -885,3 +885,18 @@ def test_unit__custom_definition_name__ok__nominal_case():
         "type": "object",
     } == builder.json_schema()
     get_definition_name.assert_called_with(Nested, [], [])
+
+
+def test_unit__not_init_fields__ok__nominal_case():
+    @dataclasses.dataclass
+    class Class(object):
+        """Class"""
+
+        one: str
+        two: int = dataclasses.field(init=False)
+
+    serializer = serpyco.Serializer(Class)
+    obj = Class(one="hello")
+    obj.two = 12
+    assert obj == serializer.load({"one": "hello", "two": 12})
+    assert {"one": "hello", "two": 12} == serializer.dump(obj)

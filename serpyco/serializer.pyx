@@ -74,6 +74,7 @@ cdef class Serializer(object):
     """
 
     cdef tuple _fields
+    cdef tuple _post_init_fields
     cdef object _dataclass
     cdef bint _many
     cdef bint _omit_none
@@ -125,6 +126,7 @@ cdef class Serializer(object):
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
         fields = []
+        post_init_fields = []
         field_casters = []
 
         type_hints = typing.get_type_hints(dataclass)
@@ -140,16 +142,25 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type, hints)
-            fields.append(SField(
-                f.name,
-                hints.dict_key,
-                encoder,
-                hints.getter
-            ))
+            if f.init:
+                fields.append(SField(
+                    f.name,
+                    hints.dict_key,
+                    encoder,
+                    hints.getter
+                ))
+            else:
+                post_init_fields.append(SField(
+                    f.name,
+                    hints.dict_key,
+                    encoder,
+                    hints.getter
+                ))
 
             if hints.cast_on_load:
                 field_casters.append(Caster(hints.dict_key, field_type))
         self._fields = tuple(fields)
+        self._post_init_fields = tuple(post_init_fields)
 
         builder = SchemaBuilder(
             dataclass,
@@ -435,7 +446,7 @@ cdef class Serializer(object):
     cdef inline dict _dump(self, object obj):
         cdef dict data = {}
         cdef SField sfield
-        for sfield in self._fields:
+        for sfield in self._fields + self._post_init_fields:
             if sfield.getter:
                 encoded = sfield.getter(obj)
             else:
@@ -460,7 +471,16 @@ cdef class Serializer(object):
             elif sfield.encoder:
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
-        return self._dataclass(**decoded_data)
+        obj = self._dataclass(**decoded_data)
+        for sfield in self._post_init_fields:
+            decoded = get_data(sfield.dict_key)
+            if decoded is None:
+                if self._omit_none:
+                    continue
+            elif sfield.encoder:
+                decoded = sfield.encoder.load(decoded)
+            setattr(obj, sfield.field_name, decoded)
+        return obj
 
     def _get_field_serializer(self, sfield: SField) -> "Serializer":
         cdef FieldEncoder encoder = sfield.encoder
