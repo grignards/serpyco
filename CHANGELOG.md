@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.15.2
+
+- fix: fields with `init=False`
+
 ## v0.15.1
 
 - fix: custom definition name in JSON schema
