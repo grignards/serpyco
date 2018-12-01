@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.16.1
+
+- fix: None default in schema
+
 ## v0.16
 
 - fix: encode default values in schema

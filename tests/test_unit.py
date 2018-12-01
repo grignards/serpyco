@@ -1024,4 +1024,3 @@ def test_unit__schema__ok__none_default():
         },
         "type": "object",
     } == serializer.json_schema()
-
