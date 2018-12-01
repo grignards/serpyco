@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
-
+import dataclasses
 import typing
+
+from serpyco.exception import NotDataClassError
 
 JsonDict = typing.Dict[str, typing.Any]
 
@@ -50,6 +52,36 @@ def _is_optional(field_type: type) -> bool:
     except AttributeError:
         return False
     return is_union and 2 == len(args) and issubclass(args[1], type(None))
+
+
+@dataclasses.dataclass(init=False)
+class _DataClassParams(object):
+    type_: type
+    arguments: typing.Tuple[type, ...]
+    parameters: typing.Tuple[typing.Any, ...]
+
+    def __init__(self, type_: type) -> None:
+        try:
+            self.arguments = getattr(type_, "__args__")
+        except AttributeError:
+            self.arguments = ()
+        try:
+            self.type_ = getattr(type_, "__origin__")
+            self.parameters = getattr(self.type_, "__parameters__")
+        except AttributeError:
+            self.type_ = type_
+            self.parameters = ()
+        if not dataclasses.is_dataclass(self.type_):
+            raise NotDataClassError(f"{self.type_} is not a dataclass")
+
+    def resolve_type(self, field_type: typing.Any) -> typing.Any:
+        # Resolve type in case of generic
+        try:
+            index = self.parameters.index(field_type)
+            field_type = self.arguments[index]
+        except ValueError:
+            pass
+        return field_type
 
 
 def _get_values(components: typing.List[str], data: typing.Any) -> typing.Any:

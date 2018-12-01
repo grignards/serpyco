@@ -19,11 +19,17 @@ import rapidjson
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.encoder cimport FieldEncoder
-from serpyco.exception import ValidationError, NoEncoderError
+from serpyco.exception import ValidationError, NoEncoderError, NotDataClassError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
-from serpyco.util import _is_generic, _is_optional, _is_union, _issubclass_safe
+from serpyco.util import (
+    _is_generic,
+    _is_optional,
+    _is_union,
+    _issubclass_safe,
+    _DataClassParams
+)
 from serpyco.validator import RapidJsonValidator
 
 
@@ -97,7 +103,7 @@ cdef class Serializer(object):
 
     def __init__(
         self,
-        dataclass: type,
+        dataclass,
         many: bool = False,
         omit_none: bool = True,
         type_encoders: typing.Dict[type, FieldEncoder] = {},
@@ -115,9 +121,7 @@ cdef class Serializer(object):
         :param only: list of fields to serialize.
             If None, all fields are serialized
         """
-        if not dataclasses.is_dataclass(dataclass):
-            raise TypeError(f"{dataclass} is not a dataclass")
-        self._dataclass = dataclass
+        self._dataclass = _DataClassParams(dataclass)
         self._many = many
         self._omit_none = omit_none
         self._types = type_encoders
@@ -129,9 +133,9 @@ cdef class Serializer(object):
         post_init_fields = []
         field_casters = []
 
-        type_hints = typing.get_type_hints(dataclass)
+        type_hints = typing.get_type_hints(self._dataclass.type_)
         field_encoders = {}
-        for f in dataclasses.fields(dataclass):
+        for f in dataclasses.fields(self._dataclass.type_):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
             if (
@@ -142,6 +146,9 @@ cdef class Serializer(object):
                 continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
+
+            field_type = self._dataclass.resolve_type(field_type)
+
             encoder = self._get_encoder(field_type, hints)
             if encoder:
                 field_encoders[field_type] = encoder
@@ -182,8 +189,8 @@ cdef class Serializer(object):
         self._pre_dumpers = []
         self._post_loaders = []
         self._pre_loaders = []
-        for attr_name in dir(dataclass):
-            attr = getattr(dataclass, attr_name)
+        for attr_name in dir(self._dataclass.type_):
+            attr = getattr(self._dataclass.type_, attr_name)
             try:
                 tag = getattr(attr, _serpyco_tags)
                 if DecoratorType.POST_DUMP==tag:
@@ -202,7 +209,8 @@ cdef class Serializer(object):
 
     def __hash__(self):
         return hash((
-            self._dataclass,
+            self._dataclass.type_,
+            self._dataclass.arguments,
             self._many,
             self._omit_none,
             tuple(self._only),
@@ -228,7 +236,7 @@ cdef class Serializer(object):
             if sfield.field_name==part:
                 break
         else:
-            raise KeyError(f"Unknown field {part} in {self._dataclass}")
+            raise KeyError(f"Unknown field {part} in {self._dataclass.type_}")
 
         if 1 == len(obj_path):
             return [sfield.dict_key]
@@ -249,7 +257,7 @@ cdef class Serializer(object):
             if sfield.dict_key==part:
                 break
         else:
-            raise KeyError(f"Unknown dict key {part} in {self._dataclass}")
+            raise KeyError(f"Unknown dict key {part} in {self._dataclass.type_}")
 
         if 1 == len(dict_path):
             return [sfield.field_name]
@@ -281,7 +289,7 @@ cdef class Serializer(object):
         """
         Returns the dataclass used to construct this serializer.
         """
-        return self._dataclass
+        return self._dataclass.type_
 
     cpdef inline dump(
         self,
@@ -474,7 +482,7 @@ cdef class Serializer(object):
             elif sfield.encoder:
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
-        obj = self._dataclass(**decoded_data)
+        obj = self._dataclass.type_(**decoded_data)
         for sfield in self._post_init_fields:
             decoded = get_data(sfield.dict_key)
             if decoded is None:
@@ -503,6 +511,9 @@ cdef class Serializer(object):
         return dencoder._serializer
 
     def _get_encoder(self, field_type, hints):
+
+        field_type = self._dataclass.resolve_type(field_type)
+
         if field_type in self._types:
             return self._types[field_type]
         elif field_type in self._global_types:
@@ -545,31 +556,37 @@ cdef class Serializer(object):
         elif _is_generic(field_type, typing.Iterable):
             item_encoder = self._get_encoder(field_type.__args__[0], hints)
             return IterableFieldEncoder(item_encoder, field_type)
-        elif dataclasses.is_dataclass(field_type):
-            # See if one of our "ancestors" handles this type.
-            # This avoids infinite recursion if dataclasses establish a cycle
-            for serializer in self._parent_serializers:
-                sh = hash(serializer)
-                h = hash((
-                    field_type,
-                    self._many,
-                    self._omit_none,
-                    tuple(hints.only),
-                    tuple(hints.exclude)
-                ))
-                if h == sh:
-                    break
-            else:
-                serializer = Serializer(
-                    field_type,
-                    omit_none=self._omit_none,
-                    type_encoders=self._types,
-                    only=hints.only,
-                    exclude=hints.exclude,
-                    _parent_serializers=self._parent_serializers,
-                )
-            return DataClassFieldEncoder(serializer)
-        raise NoEncoderError(f"No encoder for '{field_type}'")
+
+        # Is the field a dataclass ?
+        try:
+            params = _DataClassParams(field_type)
+        except NotDataClassError:
+            raise NoEncoderError(f"No encoder for '{field_type}'")
+
+        # See if one of our "ancestors" handles this dataclass.
+        # This avoids infinite recursion if dataclasses establish a cycle
+        for serializer in self._parent_serializers:
+            sh = hash(serializer)
+            h = hash((
+                params.type_,
+                params.arguments,
+                self._many,
+                self._omit_none,
+                tuple(hints.only),
+                tuple(hints.exclude)
+            ))
+            if h == sh:
+                break
+        else:
+            serializer = Serializer(
+                field_type,
+                omit_none=self._omit_none,
+                type_encoders=self._types,
+                only=hints.only,
+                exclude=hints.exclude,
+                _parent_serializers=self._parent_serializers,
+            )
+        return DataClassFieldEncoder(serializer)
 
 
 @cython.final

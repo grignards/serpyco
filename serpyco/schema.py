@@ -4,27 +4,37 @@ import enum
 import typing
 
 from serpyco.encoder import FieldEncoder  # type: ignore
-from serpyco.exception import SchemaError
+from serpyco.exception import NotDataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (
     JSON_ENCODABLE_TYPES,
     FieldValidator,
     JsonDict,
+    _DataClassParams,
     _is_generic,
     _is_optional,
     _is_union,
     _issubclass_safe,
 )
 
+GetDefinitionCallable = typing.Callable[
+    [type, typing.Iterable[type], typing.Iterable[str], typing.Iterable[str]], str
+]
+
 
 def default_get_definition_name(
-    type_: type, only: typing.List[str], exclude: typing.List[str]
+    type_: type,
+    arguments: typing.Iterable[type],
+    only: typing.Iterable[str],
+    exclude: typing.Iterable[str],
 ) -> str:
     """
     Ensures that a definition name is unique even for the same type
-    with different only/exclude parameters
+    with different arguments or only/exclude parameters
     """
     name = type_.__name__
+    if arguments:
+        name += "[" + ",".join([arg.__name__ for arg in arguments]) + "]"
     if only:
         name += "_only_" + "_".join(only)
     if exclude:
@@ -52,9 +62,7 @@ class SchemaBuilder(object):
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Dict[type, FieldEncoder] = {},
-        get_definition_name: typing.Callable[
-            [type, typing.List[str], typing.List[str]], str
-        ] = default_get_definition_name,
+        get_definition_name: GetDefinitionCallable = default_get_definition_name,
     ) -> None:
         """
         Creates a SchemaBuilder for the given dataclass.
@@ -73,7 +81,7 @@ class SchemaBuilder(object):
               - the `exclude` list defined for the nested dataclass
             It must return a string.
         """
-        self._dataclass = dataclass
+        self._dataclass = _DataClassParams(dataclass)
         self._many = many
         self._only = only or []
         self._exclude = exclude or []
@@ -83,7 +91,8 @@ class SchemaBuilder(object):
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: dict = {}
         self._get_definition_name = get_definition_name
-        for f in dataclasses.fields(dataclass):
+
+        for f in dataclasses.fields(self._dataclass.type_):
             if not f.metadata:
                 hints = FieldHints(dict_key=f.name)
             else:
@@ -100,7 +109,13 @@ class SchemaBuilder(object):
 
     def __hash__(self) -> int:
         return hash(
-            (self._dataclass, self._many, tuple(self._only), tuple(self._exclude))
+            (
+                self._dataclass.type_,
+                self._dataclass.arguments,
+                self._many,
+                tuple(self._only),
+                tuple(self._exclude),
+            )
         )
 
     def nested_builders(self) -> typing.List[typing.Tuple[str, "SchemaBuilder"]]:
@@ -155,12 +170,14 @@ class SchemaBuilder(object):
         parent_builders.append(self)
 
         definitions: JsonDict = {}  # noqa: E704
-        type_hints = typing.get_type_hints(self._dataclass)
 
+        type_hints = typing.get_type_hints(self._dataclass.type_)
         properties = {}
         required = []
         for vfield in self._fields:
             field_type = type_hints[vfield.field.name]
+            field_type = self._dataclass.resolve_type(field_type)
+
             field_schema, is_required = self._get_field_schema(
                 field_type, parent_builders, vfield=vfield
             )
@@ -190,19 +207,25 @@ class SchemaBuilder(object):
                 item_types = [field_type.__args__[0]]
 
             for item_type in item_types:
-                if not dataclasses.is_dataclass(item_type):
+                try:
+                    params = _DataClassParams(item_type)
+                except NotDataClassError:
                     continue
 
                 # Prevent recursion from forward refs &
                 # circular type dependencies
                 definition_name = self._get_definition_name(
-                    item_type, vfield.hints.only, vfield.hints.exclude
+                    params.type_,
+                    params.arguments,
+                    vfield.hints.only,
+                    vfield.hints.exclude,
                 )
                 if definition_name not in definitions:
                     for builder in parent_builders:
                         if hash(builder) == hash(
                             (
-                                item_type,
+                                params.type_,
+                                params.arguments,
                                 False,
                                 tuple(vfield.hints.only),
                                 tuple(vfield.hints.exclude),
@@ -244,14 +267,17 @@ class SchemaBuilder(object):
         schema = {"type": "object", "properties": properties}
         if required:
             schema["required"] = required
-        if self._dataclass.__doc__:
-            schema["description"] = self._dataclass.__doc__.strip()
+        if self._dataclass.type_.__doc__:
+            schema["description"] = self._dataclass.type_.__doc__.strip()
 
         if embeddable:
             schema = {
                 **definitions,
                 self._get_definition_name(
-                    self._dataclass, self._only, self._exclude
+                    self._dataclass.type_,
+                    self._dataclass.arguments,
+                    self._only,
+                    self._exclude,
                 ): schema,
             }
         elif not self._many:
@@ -278,6 +304,8 @@ class SchemaBuilder(object):
         parent_builders: typing.List["SchemaBuilder"],
         vfield: _SchemaBuilderField,
     ) -> typing.Tuple[JsonDict, bool]:
+        field_type = self._dataclass.resolve_type(field_type)
+
         required = True
         try:
             schema = self._types[field_type].json_schema()
@@ -286,104 +314,106 @@ class SchemaBuilder(object):
         except KeyError:
             pass
 
-        field_schema: JsonDict = {"type": "object"}
+        field_schema: JsonDict = {}
         if field_type in self._global_types:
             field_schema = self._global_types[field_type].json_schema()
-        elif dataclasses.is_dataclass(field_type):
-            if field_type == parent_builders[0]._dataclass:
-                ref = "#"
-            else:
-                ref = "#/definitions/{}".format(
-                    self._get_definition_name(
-                        field_type, vfield.hints.only, vfield.hints.exclude
-                    )
-                )
-            field_schema = {"$ref": ref}
-        else:
-            if typing.Any == field_type:
-                field_schema = {}
-            elif _is_optional(field_type):
-                field_schema = {
-                    "anyOf": [
-                        self._get_field_schema(
-                            field_type.__args__[0], parent_builders, vfield
-                        )[0],
-                        {"type": "null"},
-                    ]
-                }
-                required = False
-            elif _is_union(field_type):
-                schemas = [
-                    self._get_field_schema(item_type, parent_builders, vfield)[0]
-                    for item_type in field_type.__args__
+        elif typing.Any == field_type:
+            field_schema = {}
+        elif _is_optional(field_type):
+            field_schema = {
+                "anyOf": [
+                    self._get_field_schema(
+                        field_type.__args__[0], parent_builders, vfield
+                    )[0],
+                    {"type": "null"},
                 ]
-                field_schema = {"oneOf": schemas}
-            elif _issubclass_safe(field_type, enum.Enum):
-                member_types = set()
-                values = []
-                field_schema = {}
-                for member in field_type:
-                    member_types.add(type(member.value))
-                    values.append(member.value)
-                if len(member_types) == 1:
-                    member_type = member_types.pop()
-                    if member_type in JSON_ENCODABLE_TYPES:
-                        field_schema.update(JSON_ENCODABLE_TYPES[member_type])
-                    elif member_type in self._types:
-                        field_schema = self._types[member_types.pop()].json_schema()
-                    elif member_type in self._global_types:
-                        field_schema = self._global_types[
-                            member_types.pop()
-                        ].json_schema()
-                field_schema["enum"] = values
-                if field_type.__doc__:
-                    field_schema["description"] = field_type.__doc__.strip()
-            elif field_type in JSON_ENCODABLE_TYPES:
-                field_schema = dict(JSON_ENCODABLE_TYPES[field_type])
-                validation_hints = [
-                    ("pattern", "pattern"),
-                    ("max_length", "maxLength"),
-                    ("min_length", "minLength"),
-                    ("minimum", "minimum"),
-                    ("maximum", "maximum"),
-                    ("format_", "format"),
-                ]
-                for hint_attr, schema_attr in validation_hints:
-                    attr = getattr(vfield.hints, hint_attr)
-                    if attr is not None:
-                        field_schema[schema_attr] = attr
-            elif _is_generic(field_type, typing.Mapping):
-                field_schema = {"type": "object"}
-                add = self._get_field_schema(
-                    field_type.__args__[1], parent_builders, vfield
-                )[0]
-                field_schema["additionalProperties"] = add
-            elif _is_generic(field_type, tuple) and (
-                len(field_type.__args__) != 2
-                or field_type.__args__[len(field_type.__args__) - 1] is not ...
-            ):
-                arg_len = len(field_type.__args__)
-                items = [
-                    self._get_field_schema(arg_type, parent_builders, vfield)[0]
-                    for arg_type in field_type.__args__
-                ]
-                field_schema = {
-                    "type": "array",
-                    "minItems": arg_len,
-                    "maxItems": arg_len,
-                    "items": items,
-                }
+            }
+            required = False
+        elif _is_union(field_type):
+            schemas = [
+                self._get_field_schema(item_type, parent_builders, vfield)[0]
+                for item_type in field_type.__args__
+            ]
+            field_schema = {"oneOf": schemas}
+        elif _issubclass_safe(field_type, enum.Enum):
+            member_types = set()
+            values = []
+            field_schema = {}
+            for member in field_type:
+                member_types.add(type(member.value))
+                values.append(member.value)
+            if len(member_types) == 1:
+                member_type = member_types.pop()
+                if member_type in JSON_ENCODABLE_TYPES:
+                    field_schema.update(JSON_ENCODABLE_TYPES[member_type])
+                elif member_type in self._types:
+                    field_schema = self._types[member_types.pop()].json_schema()
+                elif member_type in self._global_types:
+                    field_schema = self._global_types[member_types.pop()].json_schema()
+            field_schema["enum"] = values
+            if field_type.__doc__:
+                field_schema["description"] = field_type.__doc__.strip()
+        elif field_type in JSON_ENCODABLE_TYPES:
+            field_schema = dict(JSON_ENCODABLE_TYPES[field_type])
+            validation_hints = [
+                ("pattern", "pattern"),
+                ("max_length", "maxLength"),
+                ("min_length", "minLength"),
+                ("minimum", "minimum"),
+                ("maximum", "maximum"),
+                ("format_", "format"),
+            ]
+            for hint_attr, schema_attr in validation_hints:
+                attr = getattr(vfield.hints, hint_attr)
+                if attr is not None:
+                    field_schema[schema_attr] = attr
+        elif _is_generic(field_type, typing.Mapping):
+            field_schema = {"type": "object"}
+            add = self._get_field_schema(
+                field_type.__args__[1], parent_builders, vfield
+            )[0]
+            field_schema["additionalProperties"] = add
+        elif _is_generic(field_type, tuple) and (
+            len(field_type.__args__) != 2
+            or field_type.__args__[len(field_type.__args__) - 1] is not ...
+        ):
+            arg_len = len(field_type.__args__)
+            items = [
+                self._get_field_schema(arg_type, parent_builders, vfield)[0]
+                for arg_type in field_type.__args__
+            ]
+            field_schema = {
+                "type": "array",
+                "minItems": arg_len,
+                "maxItems": arg_len,
+                "items": items,
+            }
 
-            elif _is_generic(field_type, typing.Iterable):
-                field_schema = {"type": "array"}
-                field_schema["items"] = self._get_field_schema(
-                    field_type.__args__[0], parent_builders, vfield
-                )[0]
-            elif hasattr(field_type, "__supertype__"):  # NewType fields
-                field_schema, _ = self._get_field_schema(
-                    field_type.__supertype__, parent_builders, vfield
-                )
-            else:
+        elif _is_generic(field_type, typing.Iterable):
+            field_schema = {"type": "array"}
+            field_schema["items"] = self._get_field_schema(
+                field_type.__args__[0], parent_builders, vfield
+            )[0]
+        elif hasattr(field_type, "__supertype__"):  # NewType fields
+            field_schema, _ = self._get_field_schema(
+                field_type.__supertype__, parent_builders, vfield
+            )
+        else:
+            try:
+                params = _DataClassParams(field_type)
+                if params == parent_builders[0]._dataclass:
+                    ref = "#"
+                else:
+                    ref = "#/definitions/{}".format(
+                        self._get_definition_name(
+                            params.type_,
+                            params.arguments,
+                            vfield.hints.only,
+                            vfield.hints.exclude,
+                        )
+                    )
+                field_schema = {"$ref": ref}
+            except NotDataClassError:
                 msg = f"Unable to create schema for '{field_type}'"
                 raise SchemaError(msg)
 

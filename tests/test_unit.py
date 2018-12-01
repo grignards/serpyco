@@ -884,7 +884,7 @@ def test_unit__custom_definition_name__ok__nominal_case():
         "required": ["nested"],
         "type": "object",
     } == builder.json_schema()
-    get_definition_name.assert_called_with(Nested, [], [])
+    get_definition_name.assert_called_with(Nested, (), [], [])
 
 
 def test_unit__not_init_fields__ok__nominal_case():
@@ -935,3 +935,73 @@ def test_unit__schema__ok__with_default_dataclass():
         "required": ["one", "nested"],
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__generic_dataclass__ok__nominal_case():
+    T = typing.TypeVar("T")
+
+    @dataclasses.dataclass
+    class Gen(typing.Generic[T]):
+        "Generic."
+        foo: str
+        bar: T
+
+    serializer = serpyco.Serializer(Gen[int])
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Generic.",
+        "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
+        "required": ["foo", "bar"],
+        "type": "object",
+    } == serializer.json_schema()
+
+    @dataclasses.dataclass
+    class WithGen(object):
+        "With a generic."
+        nested: Gen[int]
+
+    serializer = serpyco.Serializer(WithGen)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "Gen[int]": {
+                "description": "Generic.",
+                "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
+                "required": ["foo", "bar"],
+                "type": "object",
+            }
+        },
+        "description": "With a generic.",
+        "properties": {"nested": {"$ref": "#/definitions/Gen[int]"}},
+        "required": ["nested"],
+        "type": "object",
+    } == serializer.json_schema()
+    assert WithGen(nested=Gen(foo="bar", bar=12)) == serializer.load(
+        {"nested": {"foo": "bar", "bar": 12}}
+    )
+
+    @dataclasses.dataclass(init=False)
+    class SList(typing.Generic[T]):
+        """List."""
+
+        items: typing.List[T]
+        item_nb: int
+
+        def __init__(self, items: typing.List[T]) -> None:
+            self.items = items
+            self.item_nb = len(items)
+
+    serializer = serpyco.Serializer(SList[int])
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "List.",
+        "properties": {
+            "item_nb": {"type": "integer"},
+            "items": {"items": {"type": "integer"}, "type": "array"},
+        },
+        "required": ["items", "item_nb"],
+        "type": "object",
+    } == serializer.json_schema()
+    assert {"items": [0, 1], "item_nb": 2} == serializer.dump(SList([0, 1]))
