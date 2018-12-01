@@ -669,7 +669,6 @@ def test_unit__field_default__ok__nominal_case():
                 "format": "date-time",
             },
         },
-        "required": ["foo", "bar", "datetime_"],
         "type": "object",
     } == serializer.json_schema()
 
@@ -923,7 +922,6 @@ def test_unit__schema__ok__with_default_dataclass():
             "Nested": {
                 "description": "Nested",
                 "properties": {"name": {"default": "Hello", "type": "string"}},
-                "required": ["name"],
                 "type": "object",
             }
         },
@@ -932,7 +930,7 @@ def test_unit__schema__ok__with_default_dataclass():
             "nested": {"$ref": "#/definitions/Nested", "default": {"name": "Hello"}},
             "one": {"type": "string"},
         },
-        "required": ["one", "nested"],
+        "required": ["one"],
         "type": "object",
     } == serializer.json_schema()
 

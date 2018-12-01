@@ -3,6 +3,7 @@
 ## v0.16.1
 
 - fix: None default in schema
+- fix: fields with a default value are not required
 
 ## v0.16
 
