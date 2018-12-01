@@ -191,7 +191,11 @@ class SchemaBuilder(object):
 
             if default_value != dataclasses.MISSING:
                 if field_type in self._types:
-                    default_value = self._types[field_type].dump(default_value)
+                    default_value = (
+                        self._types[field_type].dump(default_value)
+                        if default_value is not None
+                        else None
+                    )
                 field_schema["default"] = default_value
             properties[vfield.hints.dict_key] = field_schema
 
