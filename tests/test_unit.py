@@ -900,3 +900,38 @@ def test_unit__not_init_fields__ok__nominal_case():
     obj.two = 12
     assert obj == serializer.load({"one": "hello", "two": 12})
     assert {"one": "hello", "two": 12} == serializer.dump(obj)
+
+
+def test_unit__schema__ok__with_default_dataclass():
+    @dataclasses.dataclass
+    class Nested(object):
+        """Nested"""
+
+        name: str = "Hello"
+
+    @dataclasses.dataclass
+    class Class(object):
+        """Class"""
+
+        one: str
+        nested: Nested = dataclasses.field(default_factory=Nested)
+
+    serializer = serpyco.Serializer(Class)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "Nested": {
+                "description": "Nested",
+                "properties": {"name": {"default": "Hello", "type": "string"}},
+                "required": ["name"],
+                "type": "object",
+            }
+        },
+        "description": "Class",
+        "properties": {
+            "nested": {"$ref": "#/definitions/Nested", "default": {"name": "Hello"}},
+            "one": {"type": "string"},
+        },
+        "required": ["one", "nested"],
+        "type": "object",
+    } == serializer.json_schema()

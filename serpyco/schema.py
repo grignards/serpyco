@@ -278,11 +278,16 @@ class SchemaBuilder(object):
         parent_builders: typing.List["SchemaBuilder"],
         vfield: _SchemaBuilderField,
     ) -> typing.Tuple[JsonDict, bool]:
-        field_schema: JsonDict = {"type": "object"}
         required = True
-        if field_type in self._types:
-            field_schema = self._types[field_type].json_schema()
-        elif field_type in self._global_types:
+        try:
+            schema = self._types[field_type].json_schema()
+            if schema is not None:
+                return schema, required
+        except KeyError:
+            pass
+
+        field_schema: JsonDict = {"type": "object"}
+        if field_type in self._global_types:
             field_schema = self._global_types[field_type].json_schema()
         elif dataclasses.is_dataclass(field_type):
             if field_type == parent_builders[0]._dataclass:
@@ -312,11 +317,11 @@ class SchemaBuilder(object):
                     self._get_field_schema(item_type, parent_builders, vfield)[0]
                     for item_type in field_type.__args__
                 ]
-                field_schema["oneOf"] = schemas
-                del field_schema["type"]
+                field_schema = {"oneOf": schemas}
             elif _issubclass_safe(field_type, enum.Enum):
                 member_types = set()
                 values = []
+                field_schema = {}
                 for member in field_type:
                     member_types.add(type(member.value))
                     values.append(member.value)

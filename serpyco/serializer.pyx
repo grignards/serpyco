@@ -130,6 +130,7 @@ cdef class Serializer(object):
         field_casters = []
 
         type_hints = typing.get_type_hints(dataclass)
+        field_encoders = {}
         for f in dataclasses.fields(dataclass):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
@@ -142,6 +143,8 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
             encoder = self._get_encoder(field_type, hints)
+            if encoder:
+                field_encoders[field_type] = encoder
             if f.init:
                 fields.append(SField(
                     f.name,
@@ -167,7 +170,7 @@ cdef class Serializer(object):
             many=many,
             only=only,
             exclude=exclude,
-            type_encoders={**self._global_types, **self._types}
+            type_encoders={**self._global_types, **self._types, **field_encoders}
         )
         self._validator = RapidJsonValidator(
             builder.json_schema(),
@@ -583,7 +586,7 @@ cdef class EnumFieldEncoder(FieldEncoder):
         return self._enum_type(value)
 
     def json_schema(self) -> JsonDict:
-        return {}
+        return None
 
 
 @cython.final
@@ -600,7 +603,7 @@ cdef class DataClassFieldEncoder(FieldEncoder):
         return self._serializer._dump(value)
 
     def json_schema(self) -> JsonDict:
-        return self.serializer.json_schema()
+        return None
 
 
 @cython.final
@@ -641,6 +644,9 @@ cdef class FixedTupleFieldEncoder(FieldEncoder):
                 encoded.append(value[i])
         return encoded
 
+    def json_schema(self) -> JsonDict:
+        return None
+
 
 @cython.final
 cdef class IterableFieldEncoder(FieldEncoder):
@@ -670,6 +676,9 @@ cdef class IterableFieldEncoder(FieldEncoder):
         if self._item_encoder:
             return self._iterable_type([self._item_encoder.dump(v) for v in value])
         return self._iterable_type(value)
+
+    def json_schema(self) -> JsonDict:
+        return None
 
 
 @cython.final
@@ -719,6 +728,9 @@ cdef class DictFieldEncoder(FieldEncoder):
         else:
             return value
 
+    def json_schema(self) -> JsonDict:
+        return None
+
 
 @cython.final
 cdef class DateTimeFieldEncoder(FieldEncoder):
@@ -754,7 +766,7 @@ cdef class UuidFieldEncoder(FieldEncoder):
     cpdef inline load(self, value):
         return uuid.UUID(value)
 
-    def json_schema(self):
+    def json_schema(self) -> JsonDict:
         return {"type": "string", "format": "uuid"}
 
 
@@ -780,3 +792,6 @@ cdef class UnionFieldEncoder(FieldEncoder):
             if isinstance(value, value_type):
                 return encoder.load(value) if encoder else value
         raise ValidationError(f"{value_type} is not a Union member")
+
+    def json_schema(self) -> JsonDict:
+        return None
