@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.16
+
+- fix: encode default values in schema
+- support Generic[T] in serialization
+
 ## v0.15.2
 
 - fix: fields with `init=False`

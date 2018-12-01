@@ -134,6 +134,7 @@ The following python types are recognized out-of-the-box by Serpyco:
 - builtins: `str`, `float`, `int`, `bool`
 - containers: `typing.List`, `typing.Set`, `typing.Tuple`
 - unions: `typing.Optional`, `typing.Union`
+- generics: `typing.Generic`
 - enumerates: `enum.Enum`
 - dates: `datetime.datetime`
 - misc: `uuid.UUID`
@@ -377,3 +378,24 @@ Serpyco is primarly made to serialize dataclass objects, but you can also use it
 
     >>> serializer.load({"name": "hello", "value": 42})
     Existing(name=hello, value=42)
+
+
+Serialize generic dataclasses
+=============================
+
+Dataclasses which are generic are supported, for example:
+
+.. code-block:: python
+
+    T = typing.TypeVar("T")
+    class Gen(typing.Generic[T]):
+        name: str
+        value: T
+    
+    serializer = serpyco.Serializer(Gen[int])
+    >>> serializer.dump(Gen(name="hello", value=42))
+    {'name': 'hello', 'value': 42}
+
+    serializer = serpyco.Serializer(Gen[str])
+    >>> serializer.dump(Gen(name="hello", value="hello"))
+    {'name': 'hello', 'value': "hello"}
