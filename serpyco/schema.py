@@ -3,6 +3,7 @@ import dataclasses
 import enum
 import typing
 
+import rapidjson  # type: ignore
 from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import NotDataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
@@ -187,16 +188,23 @@ class SchemaBuilder(object):
             if vfield.field.default != dataclasses.MISSING:
                 default_value = vfield.field.default
             elif f != dataclasses.MISSING:
+                f = self._dataclass.resolve_type(f)
                 default_value = f()
 
             if default_value != dataclasses.MISSING:
+                is_required = False
                 if field_type in self._types:
                     default_value = (
                         self._types[field_type].dump(default_value)
                         if default_value is not None
                         else None
                     )
-                field_schema["default"] = default_value
+                try:
+                    rapidjson.dumps(default_value)
+                    field_schema["default"] = default_value
+                except TypeError:
+                    pass
+
             properties[vfield.hints.dict_key] = field_schema
 
             # Update definitions to objects
@@ -211,6 +219,7 @@ class SchemaBuilder(object):
                 item_types = [field_type.__args__[0]]
 
             for item_type in item_types:
+                item_type = self._dataclass.resolve_type(item_type)
                 try:
                     params = _DataClassParams(item_type)
                 except NotDataClassError:
