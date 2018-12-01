@@ -1005,3 +1005,22 @@ def test_unit__generic_dataclass__ok__nominal_case():
         "type": "object",
     } == serializer.json_schema()
     assert {"items": [0, 1], "item_nb": 2} == serializer.dump(SList([0, 1]))
+
+
+def test_unit__schema__ok__none_default():
+    @dataclasses.dataclass
+    class Def(object):
+        """Def."""
+
+        foo: typing.Optional[int] = None
+
+    serializer = serpyco.Serializer(Def)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "Def.",
+        "properties": {
+            "foo": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None}
+        },
+        "type": "object",
+    } == serializer.json_schema()
