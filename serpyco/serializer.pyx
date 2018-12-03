@@ -799,16 +799,28 @@ cdef class UnionFieldEncoder(FieldEncoder):
         self._type_encoders = tuple(type_encoders)
 
     cpdef inline dump(self, value):
+        cdef list value_types = []
         for value_type, encoder in self._type_encoders:
-            if isinstance(value, value_type):
+            value_types.append(value_type)
+            try:
                 return encoder.dump(value) if encoder else value
-        raise ValidationError(f"{value_type} is not a Union member")
+            except Exception:
+                pass
+        union = ",".join(value_types)
+        msg = f"{value} has a wrong type, expected any of [{union}]"
+        raise ValidationError(msg)
 
     cpdef inline load(self, value):
+        cdef list value_types = []
         for value_type, encoder in self._type_encoders:
-            if isinstance(value, value_type):
+            try:
+                value_types.append(value_type)
                 return encoder.load(value) if encoder else value
-        raise ValidationError(f"{value_type} is not a Union member")
+            except Exception:
+                pass
+        union = ",".join([str(v) for v in value_types])
+        msg = f"{value} has a wrong type, expected any of [{union}]"
+        raise ValidationError(msg)
 
     def json_schema(self) -> JsonDict:
         return None

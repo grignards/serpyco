@@ -1022,3 +1022,27 @@ def test_unit__schema__ok__none_default():
         },
         "type": "object",
     } == serializer.json_schema()
+
+
+def test_unit__union_field_encoder__ok__nominal_case():
+
+    dummy = mock.Mock()
+    dummy.load.side_effect = lambda v: int(v)
+    dummy_raise_at_load = mock.Mock()
+    dummy_raise_at_load.load.side_effect = Exception
+    encoder = serpyco.serializer.UnionFieldEncoder(
+        [(int, dummy), (str, dummy_raise_at_load)]
+    )
+    encoder.dump(42)
+    dummy.dump.assert_called_once_with(42)
+    dummy_raise_at_load.dump.assert_not_called
+
+    encoder.load(42)
+    dummy.load.assert_called_once_with(42)
+    dummy_raise_at_load.load.assert_not_called
+
+    dummy.load.reset_mock()
+    with pytest.raises(serpyco.ValidationError):
+        print(encoder.load("hello"))
+        dummy.load.assert_called_once_with("hello")
+        dummy_raise_at_load.load.assert_called_once_with("hello")
