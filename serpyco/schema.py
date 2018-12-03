@@ -414,7 +414,10 @@ class SchemaBuilder(object):
         else:
             try:
                 params = _DataClassParams(field_type)
-                if params == parent_builders[0]._dataclass:
+                if (
+                    params == parent_builders[0]._dataclass
+                    and not parent_builders[0]._many
+                ):
                     ref = "#"
                 else:
                     ref = "#/definitions/{}".format(
