@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.16.2
+
+- fix: `Union` loading with non-builtin types
+- fix: reference in sub-schemas when many=True is enabled
+
 ## v0.16.1
 
 - fix: None default in schema
