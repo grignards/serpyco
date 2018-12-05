@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.16.3
+
+- fix: non json-serializable default value in schemas with several nested levels
+- fix: optional fields with custom encoders were not considered as optional
+
 ## v0.16.2
 
 - fix: `Union` loading with non-builtin types
