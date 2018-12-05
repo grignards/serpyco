@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.16.4
+
+- fix: default value not written in schema
+
 ## v0.16.3
 
 - fix: non json-serializable default value in schemas with several nested levels
