@@ -1046,3 +1046,51 @@ def test_unit__union_field_encoder__ok__nominal_case():
         print(encoder.load("hello"))
         dummy.load.assert_called_once_with("hello")
         dummy_raise_at_load.load.assert_called_once_with("hello")
+
+
+def test_unit__optional__custom_encoder__ok__nominal_case():
+    @dataclasses.dataclass
+    class OptionalCustom(object):
+        """OptionalCustom."""
+
+        name: typing.Optional[str]
+
+    class CustomEncoder(serpyco.FieldEncoder):
+        def json_schema(self):
+            return {"type": "string"}
+
+    serializer = serpyco.Serializer(
+        OptionalCustom, type_encoders={str: CustomEncoder()}
+    )
+
+    assert serializer.json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "OptionalCustom.",
+        "properties": {"name": {"type": "string"}},
+        "type": "object",
+    }
+
+
+def test_unit__default__err():
+    T = typing.TypeVar("T")
+
+    @dataclasses.dataclass
+    class Foo(typing.Generic[T]):
+        """Foo."""
+
+        name: typing.Optional[T] = None
+
+    @dataclasses.dataclass
+    class Bar(object):
+        """Bar."""
+
+        foo: Foo[str] = dataclasses.field(default_factory=Foo)
+
+    @dataclasses.dataclass
+    class Spam(object):
+        """Spam."""
+
+        bars: typing.List[Bar] = dataclasses.field(default_factory=list)
+
+    assert serpyco.Serializer(Spam).json_schema() == {}

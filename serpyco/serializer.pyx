@@ -91,6 +91,7 @@ cdef class Serializer(object):
     cdef list _pre_loaders
     cdef list _post_loaders
     cdef tuple _field_casters
+    cdef dict _field_encoders
     cdef dict _types
     cdef list _only
     cdef list _exclude
@@ -121,6 +122,7 @@ cdef class Serializer(object):
         :param only: list of fields to serialize.
             If None, all fields are serialized
         """
+        cdef Serializer parent
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
         self._omit_none = omit_none
@@ -134,7 +136,7 @@ cdef class Serializer(object):
         field_casters = []
 
         type_hints = typing.get_type_hints(self._dataclass.type_)
-        field_encoders = {}
+        self._field_encoders = {}
         for f in dataclasses.fields(self._dataclass.type_):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
@@ -151,7 +153,7 @@ cdef class Serializer(object):
 
             encoder = self._get_encoder(field_type, hints)
             if encoder:
-                field_encoders[field_type] = encoder
+                self._field_encoders[field_type] = encoder
             if f.init:
                 fields.append(SField(
                     f.name,
@@ -172,6 +174,9 @@ cdef class Serializer(object):
         self._fields = tuple(fields)
         self._post_init_fields = tuple(post_init_fields)
 
+        field_encoders = {}
+        for parent in self._parent_serializers:
+            field_encoders.update(parent._field_encoders)
         builder = SchemaBuilder(
             dataclass,
             many=many,

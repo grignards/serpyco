@@ -3,7 +3,6 @@ import dataclasses
 import enum
 import typing
 
-import rapidjson  # type: ignore
 from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import NotDataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
@@ -62,7 +61,7 @@ class SchemaBuilder(object):
         many: bool = False,
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
-        type_encoders: typing.Dict[type, FieldEncoder] = {},
+        type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
         get_definition_name: GetDefinitionCallable = default_get_definition_name,
     ) -> None:
         """
@@ -86,7 +85,7 @@ class SchemaBuilder(object):
         self._many = many
         self._only = only or []
         self._exclude = exclude or []
-        self._types = type_encoders
+        self._types = type_encoders or {}
         self._fields: typing.List[_SchemaBuilderField] = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
@@ -193,17 +192,8 @@ class SchemaBuilder(object):
 
             if default_value != dataclasses.MISSING:
                 is_required = False
-                if field_type in self._types:
-                    default_value = (
-                        self._types[field_type].dump(default_value)
-                        if default_value is not None
-                        else None
-                    )
-                try:
-                    rapidjson.dumps(default_value)
-                    field_schema["default"] = default_value
-                except TypeError:
-                    pass
+                if field_type in self._types and default_value is not None:
+                    default_value = self._types[field_type].dump(default_value)
 
             properties[vfield.hints.dict_key] = field_schema
 
@@ -323,7 +313,7 @@ class SchemaBuilder(object):
         try:
             schema = self._types[field_type].json_schema()
             if schema is not None:
-                return schema, required
+                return schema, not _is_optional(field_type)
         except KeyError:
             pass
 
