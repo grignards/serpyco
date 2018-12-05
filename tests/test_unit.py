@@ -1070,27 +1070,3 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "properties": {"name": {"type": "string"}},
         "type": "object",
     }
-
-
-def test_unit__default__err():
-    T = typing.TypeVar("T")
-
-    @dataclasses.dataclass
-    class Foo(typing.Generic[T]):
-        """Foo."""
-
-        name: typing.Optional[T] = None
-
-    @dataclasses.dataclass
-    class Bar(object):
-        """Bar."""
-
-        foo: Foo[str] = dataclasses.field(default_factory=Foo)
-
-    @dataclasses.dataclass
-    class Spam(object):
-        """Spam."""
-
-        bars: typing.List[Bar] = dataclasses.field(default_factory=list)
-
-    assert serpyco.Serializer(Spam).json_schema() == {}

@@ -194,6 +194,7 @@ class SchemaBuilder(object):
                 is_required = False
                 if field_type in self._types and default_value is not None:
                     default_value = self._types[field_type].dump(default_value)
+                field_schema["default"] = default_value
 
             properties[vfield.hints.dict_key] = field_schema
 
