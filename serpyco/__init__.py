@@ -7,6 +7,7 @@ __all__ = (
     "FieldEncoder",
     "nested_field",
     "NoEncoderError",
+    "NotADataClassError",
     "number_field",
     "post_dump",
     "post_load",
@@ -25,6 +26,7 @@ from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import (
     BaseSerpycoError,
     ValidationError,
+    NotADataClassError,
     SchemaError,
     NoEncoderError,
 )

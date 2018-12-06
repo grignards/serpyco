@@ -340,7 +340,7 @@ def test_unit__union__ok__nominal_case() -> None:
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {},
         "description": "Union test class",
-        "properties": {"foo": {"oneOf": [{"type": "string"}, {"type": "integer"}]}},
+        "properties": {"foo": {"anyOf": [{"type": "string"}, {"type": "integer"}]}},
         "required": ["foo"],
         "type": "object",
     } == serializer.json_schema()
@@ -1070,3 +1070,19 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "properties": {"name": {"type": "string"}},
         "type": "object",
     }
+
+
+def test_unit__serializer__err__nested_not_dataclass():
+    class Nested(object):
+        pass
+
+    @dataclasses.dataclass
+    class Foo(object):
+        n: Nested
+
+    with pytest.raises(serpyco.NoEncoderError):
+        serpyco.Serializer(Foo)
+
+    with pytest.raises(serpyco.SchemaError):
+        b = serpyco.SchemaBuilder(Foo)
+        b._create_json_schema()

@@ -19,7 +19,7 @@ import rapidjson
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.encoder cimport FieldEncoder
-from serpyco.exception import ValidationError, NoEncoderError, NotDataClassError
+from serpyco.exception import ValidationError, NoEncoderError, NotADataClassError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
@@ -530,7 +530,7 @@ cdef class Serializer(object):
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
             return None
         elif _is_union(field_type):
-            args = list(field_type.__args__ )
+            args = list(field_type.__args__)
             try:
                 args.remove(type(None))
             except ValueError:
@@ -572,7 +572,7 @@ cdef class Serializer(object):
         # Is the field a dataclass ?
         try:
             params = _DataClassParams(field_type)
-        except NotDataClassError:
+        except NotADataClassError:
             raise NoEncoderError(f"No encoder for '{field_type}'")
 
         # See if one of our "ancestors" handles this dataclass.
