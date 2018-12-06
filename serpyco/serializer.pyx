@@ -19,13 +19,12 @@ import rapidjson
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.encoder cimport FieldEncoder
-from serpyco.exception import ValidationError, NoEncoderError, NotDataClassError
+from serpyco.exception import ValidationError, NoEncoderError, NotADataClassError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
 from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
 from serpyco.util import (
     _is_generic,
-    _is_optional,
     _is_union,
     _issubclass_safe,
     _DataClassParams
@@ -530,14 +529,22 @@ cdef class Serializer(object):
             return EnumFieldEncoder(field_type)
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
             return None
-        elif _is_optional(field_type):
-            return self._get_encoder(field_type.__args__[0], hints)
         elif _is_union(field_type):
+            args = list(field_type.__args__)
+            try:
+                args.remove(type(None))
+            except ValueError:
+                pass
             type_encoders = [
                 (item_type, self._get_encoder(item_type, hints))
-                for item_type in field_type.__args__
+                for item_type in args
             ]
-            return UnionFieldEncoder(type_encoders)
+            if not args:
+                return None
+            elif len(args)== 1:
+                return type_encoders[0][1]
+            else:
+                return UnionFieldEncoder(type_encoders)
         elif _is_generic(field_type, typing.Mapping):
             key_encoder = self._get_encoder(field_type.__args__[0], hints)
             value_encoder = self._get_encoder(field_type.__args__[1], hints)
@@ -565,7 +572,7 @@ cdef class Serializer(object):
         # Is the field a dataclass ?
         try:
             params = _DataClassParams(field_type)
-        except NotDataClassError:
+        except NotADataClassError:
             raise NoEncoderError(f"No encoder for '{field_type}'")
 
         # See if one of our "ancestors" handles this dataclass.

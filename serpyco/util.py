@@ -2,7 +2,7 @@
 import dataclasses
 import typing
 
-from serpyco.exception import NotDataClassError
+from serpyco.exception import NotADataClassError
 
 JsonDict = typing.Dict[str, typing.Any]
 
@@ -46,12 +46,7 @@ def _is_union(field_type: type) -> bool:
 
 
 def _is_optional(field_type: type) -> bool:
-    is_union = _is_union(field_type)
-    try:
-        args = getattr(field_type, "__args__")
-    except AttributeError:
-        return False
-    return is_union and 2 == len(args) and issubclass(args[1], type(None))
+    return _is_union(field_type) and type(None) in getattr(field_type, "__args__")
 
 
 @dataclasses.dataclass(init=False)
@@ -72,7 +67,7 @@ class _DataClassParams(object):
             self.type_ = type_
             self.parameters = ()
         if not dataclasses.is_dataclass(self.type_):
-            raise NotDataClassError(f"{self.type_} is not a dataclass")
+            raise NotADataClassError(f"{self.type_} is not a dataclass")
 
     def resolve_type(self, field_type: typing.Any) -> typing.Any:
         # Resolve type in case of generic

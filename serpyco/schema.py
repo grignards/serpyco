@@ -4,7 +4,7 @@ import enum
 import typing
 
 from serpyco.encoder import FieldEncoder  # type: ignore
-from serpyco.exception import NotDataClassError, SchemaError
+from serpyco.exception import NotADataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (
     JSON_ENCODABLE_TYPES,
@@ -200,9 +200,7 @@ class SchemaBuilder(object):
 
             # Update definitions to objects
             item_types = [field_type]
-            if _is_optional(field_type):
-                item_types = [field_type.__args__[0]]
-            elif _is_union(field_type):
+            if _is_union(field_type):
                 item_types = field_type.__args__
             elif _is_generic(field_type, typing.Mapping):
                 item_types = [field_type.__args__[1]]
@@ -213,7 +211,7 @@ class SchemaBuilder(object):
                 item_type = self._dataclass.resolve_type(item_type)
                 try:
                     params = _DataClassParams(item_type)
-                except NotDataClassError:
+                except NotADataClassError:
                     continue
 
                 # Prevent recursion from forward refs &
@@ -323,22 +321,15 @@ class SchemaBuilder(object):
             field_schema = self._global_types[field_type].json_schema()
         elif typing.Any == field_type:
             field_schema = {}
-        elif _is_optional(field_type):
-            field_schema = {
-                "anyOf": [
-                    self._get_field_schema(
-                        field_type.__args__[0], parent_builders, vfield
-                    )[0],
-                    {"type": "null"},
-                ]
-            }
-            required = False
+        elif type(None) == field_type:
+            field_schema = {"type": "null"}
         elif _is_union(field_type):
             schemas = [
                 self._get_field_schema(item_type, parent_builders, vfield)[0]
                 for item_type in field_type.__args__
             ]
-            field_schema = {"oneOf": schemas}
+            field_schema = {"anyOf": schemas}
+            required = type(None) not in field_type.__args__
         elif _issubclass_safe(field_type, enum.Enum):
             member_types = set()
             values = []
@@ -348,12 +339,10 @@ class SchemaBuilder(object):
                 values.append(member.value)
             if len(member_types) == 1:
                 member_type = member_types.pop()
-                if member_type in JSON_ENCODABLE_TYPES:
-                    field_schema.update(JSON_ENCODABLE_TYPES[member_type])
-                elif member_type in self._types:
-                    field_schema = self._types[member_types.pop()].json_schema()
-                elif member_type in self._global_types:
-                    field_schema = self._global_types[member_types.pop()].json_schema()
+                member_schema, _ = self._get_field_schema(
+                    member_type, parent_builders, vfield
+                )
+                field_schema.update(member_schema)
             field_schema["enum"] = values
             if field_type.__doc__:
                 field_schema["description"] = field_type.__doc__.strip()
@@ -420,7 +409,7 @@ class SchemaBuilder(object):
                         )
                     )
                 field_schema = {"$ref": ref}
-            except NotDataClassError:
+            except NotADataClassError:
                 msg = f"Unable to create schema for '{field_type}'"
                 raise SchemaError(msg)
 
