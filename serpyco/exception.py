@@ -18,5 +18,5 @@ class ValidationError(BaseSerpycoError):
         super().__init__(msg, args)
 
 
-class NotDataClassError(BaseSerpycoError):
+class NotADataClassError(BaseSerpycoError):
     pass

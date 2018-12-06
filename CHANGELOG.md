@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.16.5
+
+- fix: support of optional unions
+
 ## v0.16.4
 
 - fix: default value not written in schema
