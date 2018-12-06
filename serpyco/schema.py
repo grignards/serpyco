@@ -12,7 +12,6 @@ from serpyco.util import (
     JsonDict,
     _DataClassParams,
     _is_generic,
-    _is_optional,
     _is_union,
     _issubclass_safe,
 )
@@ -200,9 +199,7 @@ class SchemaBuilder(object):
 
             # Update definitions to objects
             item_types = [field_type]
-            if _is_optional(field_type):
-                item_types = [field_type.__args__[0]]
-            elif _is_union(field_type):
+            if _is_union(field_type):
                 item_types = field_type.__args__
             elif _is_generic(field_type, typing.Mapping):
                 item_types = [field_type.__args__[1]]
@@ -323,22 +320,15 @@ class SchemaBuilder(object):
             field_schema = self._global_types[field_type].json_schema()
         elif typing.Any == field_type:
             field_schema = {}
-        elif _is_optional(field_type):
-            field_schema = {
-                "anyOf": [
-                    self._get_field_schema(
-                        field_type.__args__[0], parent_builders, vfield
-                    )[0],
-                    {"type": "null"},
-                ]
-            }
-            required = False
+        elif type(None) == field_type:
+            field_schema = {"type": "null"}
         elif _is_union(field_type):
             schemas = [
                 self._get_field_schema(item_type, parent_builders, vfield)[0]
                 for item_type in field_type.__args__
             ]
             field_schema = {"oneOf": schemas}
+            required = type(None) not in field_type.__args__
         elif _issubclass_safe(field_type, enum.Enum):
             member_types = set()
             values = []
