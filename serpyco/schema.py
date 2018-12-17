@@ -44,7 +44,7 @@ def default_get_definition_name(
 
 @dataclasses.dataclass
 class _SchemaBuilderField(object):
-    field: dataclasses.Field
+    field: dataclasses.Field  # type:ignore
     hints: FieldHints
 
 
@@ -89,7 +89,7 @@ class SchemaBuilder(object):
         self._fields: typing.List[_SchemaBuilderField] = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
-        self._schema: dict = {}
+        self._schema: JsonDict = {}
         self._get_definition_name = get_definition_name
 
         for f in dataclasses.fields(self._dataclass.type_):
@@ -158,7 +158,7 @@ class SchemaBuilder(object):
         self,
         embeddable: bool = False,
         parent_builders: typing.Optional[typing.List["SchemaBuilder"]] = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Returns the JSON schema for the dataclass, along with the schema
         of any nested dataclasses within the "definitions" field.
 

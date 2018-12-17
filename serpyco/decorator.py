@@ -13,7 +13,9 @@ class DecoratorType(str, enum.Enum):
 
 
 ObjCallable = typing.Callable[[object], object]
-DictCallable = typing.Callable[[dict], dict]
+DictCallable = typing.Callable[
+    [typing.Dict[str, typing.Any]], typing.Dict[str, typing.Any]
+]
 
 
 def pre_dump(method: ObjCallable) -> ObjCallable:
