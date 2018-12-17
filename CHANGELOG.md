@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.16.6
+
+- fix: avoid non-json serializable default values in JSON schema
+
 ## v0.16.5
 
 - fix: support of optional unions

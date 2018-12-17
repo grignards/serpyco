@@ -5,7 +5,7 @@ import typing
 
 import rapidjson  # type: ignore
 from serpyco.exception import ValidationError
-from serpyco.util import FieldValidator, _get_values
+from serpyco.util import FieldValidator, JsonDict, _get_values
 
 
 class AbstractValidator(abc.ABC):
@@ -16,7 +16,7 @@ class AbstractValidator(abc.ABC):
 
     def __init__(
         self,
-        schema: dict,
+        schema: JsonDict,
         field_validators: typing.Optional[
             typing.List[typing.Tuple[str, FieldValidator]]
         ] = None,
@@ -24,7 +24,7 @@ class AbstractValidator(abc.ABC):
         self._schema = schema
         self._field_validators = field_validators or []
 
-    def json_schema(self) -> dict:
+    def json_schema(self) -> JsonDict:
         """
         Returns the schema that this validator uses to validate.
         """
@@ -38,13 +38,15 @@ class AbstractValidator(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def validate(self, data: typing.Union[dict, list]) -> None:
+    def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         """
         Validates the given data against this object's schema.
         """
         pass
 
-    def validate_user(self, data: typing.Union[dict, list], many: bool) -> None:
+    def validate_user(
+        self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool
+    ) -> None:
         """
         Validates the given data with the user-defined validators.
         See :func:`serpyco.field()`.
@@ -52,7 +54,7 @@ class AbstractValidator(abc.ABC):
         :param many: if true, data will be considered as a list
         """
         if not many:
-            data = [data]
+            data = [typing.cast(JsonDict, data)]
 
         for d in data:
             for path, validator in self._field_validators:
@@ -67,7 +69,7 @@ class RapidJsonValidator(AbstractValidator):
 
     def __init__(
         self,
-        schema: dict,
+        schema: JsonDict,
         field_validators: typing.Optional[
             typing.List[typing.Tuple[str, FieldValidator]]
         ] = None,
@@ -83,10 +85,10 @@ class RapidJsonValidator(AbstractValidator):
             msg = self._get_error_message(exc, data)
             raise ValidationError(msg, exc.args)
 
-    def validate(self, data: typing.Union[dict, list]) -> None:
+    def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         self.validate_json(rapidjson.dumps(data))
 
-    def _get_error_message(self, exc: rapidjson.ValidationError, data: dict) -> str:
+    def _get_error_message(self, exc: rapidjson.ValidationError, data: JsonDict) -> str:
         schema_part_name, schema_path, data_path = exc.args
         d = list(_get_values(data_path.split("/")[1:], data))[0]
 

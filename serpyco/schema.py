@@ -44,7 +44,7 @@ def default_get_definition_name(
 
 @dataclasses.dataclass
 class _SchemaBuilderField(object):
-    field: dataclasses.Field
+    field: dataclasses.Field  # type:ignore
     hints: FieldHints
 
 
@@ -89,7 +89,7 @@ class SchemaBuilder(object):
         self._fields: typing.List[_SchemaBuilderField] = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
-        self._schema: dict = {}
+        self._schema: JsonDict = {}
         self._get_definition_name = get_definition_name
 
         for f in dataclasses.fields(self._dataclass.type_):
@@ -158,7 +158,7 @@ class SchemaBuilder(object):
         self,
         embeddable: bool = False,
         parent_builders: typing.Optional[typing.List["SchemaBuilder"]] = None,
-    ) -> dict:
+    ) -> JsonDict:
         """Returns the JSON schema for the dataclass, along with the schema
         of any nested dataclasses within the "definitions" field.
 
@@ -194,7 +194,12 @@ class SchemaBuilder(object):
                 is_required = False
                 if field_type in self._types and default_value is not None:
                     default_value = self._types[field_type].dump(default_value)
-                field_schema["default"] = default_value
+                if type(default_value) in list(JSON_ENCODABLE_TYPES.keys()) + [
+                    dict,
+                    list,
+                    type(None),
+                ]:
+                    field_schema["default"] = default_value
 
             properties[vfield.hints.dict_key] = field_schema
 
