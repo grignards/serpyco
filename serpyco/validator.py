@@ -5,7 +5,7 @@ import typing
 
 import rapidjson  # type: ignore
 from serpyco.exception import ValidationError
-from serpyco.util import FieldValidator, _get_values, JsonDict
+from serpyco.util import FieldValidator, JsonDict, _get_values
 
 
 class AbstractValidator(abc.ABC):
