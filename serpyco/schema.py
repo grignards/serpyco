@@ -4,18 +4,18 @@ import enum
 import typing
 
 from serpyco.encoder import FieldEncoder  # type: ignore
-from serpyco.exception import NotADataClassError, SchemaError
-from serpyco.field import FieldHints, _metadata_name
-from serpyco.util import (
-    JSON_ENCODABLE_TYPES,
-    FieldValidator,
-    JsonDict,
-    _DataClassParams,
-    _is_generic,
-    _is_optional,
-    _is_union,
-    _issubclass_safe,
-)
+from serpyco.exception import NotADataClassError
+from serpyco.exception import SchemaError
+from serpyco.field import FieldHints
+from serpyco.field import _metadata_name
+from serpyco.util import JSON_ENCODABLE_TYPES
+from serpyco.util import FieldValidator
+from serpyco.util import JsonDict
+from serpyco.util import _DataClassParams
+from serpyco.util import _is_generic
+from serpyco.util import _is_optional
+from serpyco.util import _is_union
+from serpyco.util import _issubclass_safe
 
 GetDefinitionCallable = typing.Callable[
     [type, typing.Iterable[type], typing.Iterable[str], typing.Iterable[str]], str
@@ -194,7 +194,11 @@ class SchemaBuilder(object):
                 is_required = False
                 if field_type in self._types and default_value is not None:
                     default_value = self._types[field_type].dump(default_value)
-                field_schema["default"] = default_value
+                if type(default_value) in list(JSON_ENCODABLE_TYPES.keys()) + [
+                    dict,
+                    list,
+                ]:
+                    field_schema["default"] = default_value
 
             properties[vfield.hints.dict_key] = field_schema
 
