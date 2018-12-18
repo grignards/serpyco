@@ -1067,7 +1067,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {},
         "description": "OptionalCustom.",
-        "properties": {"name": {"type": "string"}},
+        "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
         "type": "object",
     }
 

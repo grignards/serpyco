@@ -183,7 +183,7 @@ class SchemaBuilder(object):
             )
 
             f = getattr(vfield.field, "default_factory")
-            default_value = dataclasses.MISSING
+            default_value: typing.Any = dataclasses.MISSING
             if vfield.field.default != dataclasses.MISSING:
                 default_value = vfield.field.default
             elif f != dataclasses.MISSING:
@@ -194,6 +194,8 @@ class SchemaBuilder(object):
                 is_required = False
                 if field_type in self._types and default_value is not None:
                     default_value = self._types[field_type].dump(default_value)
+                elif dataclasses.is_dataclass(default_value):
+                    default_value = dataclasses.asdict(default_value)
                 if type(default_value) in list(JSON_ENCODABLE_TYPES.keys()) + [
                     dict,
                     list,
@@ -312,7 +314,6 @@ class SchemaBuilder(object):
         vfield: _SchemaBuilderField,
     ) -> typing.Tuple[JsonDict, bool]:
         field_type = self._dataclass.resolve_type(field_type)
-
         required = True
         try:
             schema = self._types[field_type].json_schema()
