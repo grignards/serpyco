@@ -181,7 +181,7 @@ cdef class Serializer(object):
             many=many,
             only=only,
             exclude=exclude,
-            type_encoders={**self._global_types, **self._types, **field_encoders}
+            type_encoders={**self._global_types, **self._types}
         )
         self._validator = RapidJsonValidator(
             builder.json_schema(),
@@ -478,7 +478,10 @@ cdef class Serializer(object):
         cdef dict decoded_data = {}
         cdef SField sfield
         get_data = data.get
+        data_keys = set(data.keys())
         for sfield in self._fields:
+            if sfield.dict_key not in data_keys:
+                continue
             decoded = get_data(sfield.dict_key)
             if decoded is None:
                 if self._omit_none:
@@ -488,6 +491,8 @@ cdef class Serializer(object):
             decoded_data[sfield.field_name] = decoded
         obj = self._dataclass.type_(**decoded_data)
         for sfield in self._post_init_fields:
+            if sfield.dict_key not in data_keys:
+                continue
             decoded = get_data(sfield.dict_key)
             if decoded is None:
                 if self._omit_none:
