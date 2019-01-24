@@ -1086,3 +1086,50 @@ def test_unit__serializer__err__nested_not_dataclass():
     with pytest.raises(serpyco.SchemaError):
         b = serpyco.SchemaBuilder(Foo)
         b._create_json_schema()
+
+
+def test_unit__schema__ok__allowed_values():
+    @dataclasses.dataclass
+    class WithAllowedValues(object):
+        """WithAllowedValues."""
+
+        foo: int = serpyco.number_field(allowed_values=[1, 2, 3])
+
+    serializer = serpyco.Serializer(WithAllowedValues)
+
+    assert serializer.json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "WithAllowedValues.",
+        "properties": {"foo": {"type": "integer", "enum": [1, 2, 3]}},
+        "required": ["foo"],
+        "type": "object",
+    }
+
+
+def test_unit__schema__ok__allowed_values_with_enum():
+    class Enumerate(enum.Enum):
+        """Enum."""
+
+        ONE = 1
+        TWO = 2
+        THREE = 3
+
+    @dataclasses.dataclass
+    class WithAllowedValues(object):
+        """WithAllowedValues."""
+
+        foo: Enumerate = serpyco.field(allowed_values=[Enumerate.ONE, Enumerate.TWO])
+
+    serializer = serpyco.Serializer(WithAllowedValues)
+
+    assert serializer.json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {},
+        "description": "WithAllowedValues.",
+        "properties": {
+            "foo": {"type": "integer", "enum": [1, 2], "description": "Enum."}
+        },
+        "required": ["foo"],
+        "type": "object",
+    }

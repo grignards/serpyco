@@ -27,6 +27,7 @@ class FieldHints(object):
     only: typing.List[str] = dataclasses.field(default_factory=list)
     exclude: typing.List[str] = dataclasses.field(default_factory=list)
     cast_on_load: bool = False
+    allowed_values: typing.List[typing.Any] = dataclasses.field(default_factory=list)
 
 
 _field_hints_names = set(f.name for f in dataclasses.fields(FieldHints))
@@ -51,6 +52,7 @@ def field(
     cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
+    allowed_values: typing.Optional[typing.List[typing.Any]] = None,
     *args: str,
     **kwargs: typing.Any,
 ) -> dataclasses.Field:  # type:ignore
@@ -59,19 +61,21 @@ def field(
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
     Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
-    :param dict_key: key of the field in the dumped dictionary
-    :param ignore: if True, the field won't be considered by serpico
+    :param dict_key: key of the field in the dumped dictionary.
+    :param ignore: if True, the field won't be considered by serpico.
     :param getter: callable used to get values of this field.
-        Must take one object argument
+        Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
         if the value is not valid.
     :param cast_on_load: when true, dict values for this field are constructed
         from the field's type.
     :param description: a description for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     :param examples: a list of example usages for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
+    :param allowed_values: if given only values in this list will be considered valid
+        during validation.
     """
     metadata = kwargs.get("metadata", {})
 
@@ -93,6 +97,7 @@ def field(
         cast_on_load=cast_on_load,
         description=description,
         examples=examples or [],
+        allowed_values=allowed_values or [],
         **hints_args,
     )
 
@@ -110,6 +115,7 @@ def string_field(
     cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
+    allowed_values: typing.Optional[typing.List[typing.Any]] = None,
     format_: typing.Optional[str] = None,
     pattern: typing.Optional[str] = None,
     min_length: typing.Optional[int] = None,
@@ -152,6 +158,7 @@ def string_field(
         cast_on_load,
         description,
         examples,
+        allowed_values,
         *args,
         format_=format_,
         pattern=pattern,
@@ -169,6 +176,7 @@ def number_field(
     cast_on_load: bool = False,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
+    allowed_values: typing.Optional[typing.List[typing.Any]] = None,
     minimum: typing.Optional[int] = None,
     maximum: typing.Optional[int] = None,
     *args: str,
@@ -204,6 +212,7 @@ def number_field(
         cast_on_load,
         description,
         examples,
+        allowed_values,
         *args,
         minimum=minimum,
         maximum=maximum,
@@ -250,6 +259,7 @@ def nested_field(
         False,
         description,
         examples,
+        None,
         *args,
         only=only,
         exclude=exclude,

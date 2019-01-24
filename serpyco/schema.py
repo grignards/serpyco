@@ -423,5 +423,15 @@ class SchemaBuilder(object):
             field_schema["description"] = vfield.hints.description
         if vfield.hints.examples:
             field_schema["examples"] = vfield.hints.examples
+        if vfield.hints.allowed_values:
+            values = [
+                v.value if isinstance(v, enum.Enum) else v
+                for v in vfield.hints.allowed_values
+            ]
+            try:
+                values = list(set(field_schema["enum"]) & set(values))
+            except KeyError:
+                pass
+            field_schema["enum"] = values
 
         return field_schema, required
