@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.16.7
+
+- fix: default value with custom types led to wrong schema
+
 ## v0.16.6
 
 - fix: avoid non-json serializable default values in JSON schema
