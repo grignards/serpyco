@@ -19,6 +19,7 @@ setup(
         "cython",
         "pytest-runner",
         "setuptools_scm",
+        "wheel",
     ],
     install_requires=requires,
     tests_require=["pytest", "pytest-benchmark", "dataslots"],
