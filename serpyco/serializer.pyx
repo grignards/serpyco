@@ -66,10 +66,22 @@ cdef inline int cast_fields(tuple casters, dict data) except -1:
             v = data[caster.dict_key]
         except KeyError:
             continue
-        try:
-            data[caster.dict_key] = caster.caster(v)
-        except Exception as exc:
+        if _is_union(caster.caster):
+            types = list(getattr(caster.caster, "__args__"))
+            types.remove(type(None))
+        else:
+            types = [caster.caster]
+        casted = None
+        exc = None
+        for type_ in types:
+            try:
+                casted = type_(v)
+                break
+            except Exception as ex:
+                exc = ex
+        if casted is None:
             raise ValidationError(f"Could not cast field {caster.dict_key}: {exc}")
+        data[caster.dict_key] = casted
 
 
 @cython.final

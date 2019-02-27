@@ -1133,3 +1133,13 @@ def test_unit__schema__ok__allowed_values_with_enum():
         "required": ["foo"],
         "type": "object",
     }
+
+
+def test_unit__cast_on_load__ok__with_optional():
+    @dataclasses.dataclass
+    class OptionalCastOnLoad:
+        foo: typing.Optional[int] = serpyco.field(cast_on_load=True)
+
+    serializer = serpyco.Serializer(OptionalCastOnLoad)
+
+    assert OptionalCastOnLoad(foo=2) == serializer.load({"foo": "2"})
