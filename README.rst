@@ -50,10 +50,11 @@ Serpyco is best installed via pip:
 
     pip install serpyco
 
-It has only 2 (3 with python 3.6 dataclasses backport) dependencies:
+It has only 3 (4 with python 3.6 dataclasses backport) dependencies:
 
 - rapid-json: used for data validation and fast JSON dump/load
-- python-dateutil: used for serializing datetime objects.
+- python-dateutil: used for serializing datetime objects
+- typing_inspect: used to inspect types as needed to create serializers
 
 Documentation
 -------------

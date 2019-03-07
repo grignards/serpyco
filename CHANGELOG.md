@@ -1,5 +1,19 @@
 # Serpyco changelog
 
+## v0.16.10
+
+- refactor: use typing_inspect instead of self-made code (new dependency)
+- fix: load of dict with field encoders is now working
+
+## v0.16.9
+
+- fix: cast_on_load now works with Optional[]
+
+## v0.16.8
+
+- feat: `allowed_values` list for fields
+- fix: default value handling in schemas
+
 ## v0.16.7
 
 - fix: default value with custom types led to wrong schema
