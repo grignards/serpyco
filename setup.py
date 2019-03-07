@@ -2,7 +2,12 @@
 
 from setuptools import Extension, find_packages, setup
 
-requires = ["python-dateutil", "python-rapidjson", "dataclasses;python_version<'3.7'"]
+requires = [
+    "python-dateutil",
+    "python-rapidjson",
+    "typing-inspect",
+    "dataclasses;python_version<'3.7'",
+]
 
 setup(
     name="serpyco",

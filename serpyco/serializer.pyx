@@ -16,6 +16,7 @@ import cython
 import dateutil.parser
 import dataclasses
 import rapidjson
+import typing_inspect
 
 from serpyco.decorator import _serpyco_tags, DecoratorType
 from serpyco.encoder cimport FieldEncoder
@@ -67,7 +68,7 @@ cdef inline int cast_fields(tuple casters, dict data) except -1:
         except KeyError:
             continue
         if _is_union(caster.caster):
-            types = list(getattr(caster.caster, "__args__"))
+            types = list(typing_inspect.get_args(caster.caster))
             types.remove(type(None))
         else:
             types = [caster.caster]
@@ -534,6 +535,7 @@ cdef class Serializer(object):
     def _get_encoder(self, field_type, hints):
 
         field_type = self._dataclass.resolve_type(field_type)
+        args = typing_inspect.get_args(field_type)
 
         if field_type in self._types:
             return self._types[field_type]
@@ -547,7 +549,7 @@ cdef class Serializer(object):
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
             return None
         elif _is_union(field_type):
-            args = list(field_type.__args__)
+            args = list(typing_inspect.get_args(field_type))
             try:
                 args.remove(type(None))
             except ValueError:
@@ -563,27 +565,27 @@ cdef class Serializer(object):
             else:
                 return UnionFieldEncoder(type_encoders)
         elif _is_generic(field_type, typing.Mapping):
-            key_encoder = self._get_encoder(field_type.__args__[0], hints)
-            value_encoder = self._get_encoder(field_type.__args__[1], hints)
+            key_encoder = self._get_encoder(args[0], hints)
+            value_encoder = self._get_encoder(args[1], hints)
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
         elif (
             _is_generic(field_type, typing.Tuple)
             and (
-                len(field_type.__args__)!=2
-                or field_type.__args__[len(field_type.__args__)-1] is not ...
+                len(args)!=2
+                or args[len(args)-1] is not ...
             )
         ):
             # Special case for tuple with fixed-length argument list
             item_encoders = [
                 self._get_encoder(arg_type, hints)
-                for arg_type in field_type.__args__
+                for arg_type in args
             ]
             return FixedTupleFieldEncoder(item_encoders)
             # tuples defined with ... are handled by the following elif
         elif _is_generic(field_type, typing.Iterable):
-            item_encoder = self._get_encoder(field_type.__args__[0], hints)
+            item_encoder = self._get_encoder(args[0], hints)
             return IterableFieldEncoder(item_encoder, field_type)
 
         # Is the field a dataclass ?
@@ -707,11 +709,8 @@ cdef class IterableFieldEncoder(FieldEncoder):
 
     def __init__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
-
-        self._iterable_type = self._iterable_types_mapping.get(
-            sequence_type.__origin__,
-            sequence_type.__origin__
-        )
+        origin = typing_inspect.get_origin(sequence_type)
+        self._iterable_type = self._iterable_types_mapping.get(origin, origin)
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:

@@ -3,6 +3,8 @@ import dataclasses
 import enum
 import typing
 
+import typing_inspect  # type: ignore
+
 from serpyco.encoder import FieldEncoder  # type: ignore
 from serpyco.exception import NotADataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
@@ -176,6 +178,7 @@ class SchemaBuilder(object):
         required = []
         for vfield in self._fields:
             field_type = type_hints[vfield.field.name]
+            args = typing_inspect.get_args(field_type)
             field_type = self._dataclass.resolve_type(field_type)
 
             field_schema, is_required = self._get_field_schema(
@@ -208,11 +211,11 @@ class SchemaBuilder(object):
             # Update definitions to objects
             item_types = [field_type]
             if _is_union(field_type):
-                item_types = field_type.__args__
+                item_types = args
             elif _is_generic(field_type, typing.Mapping):
-                item_types = [field_type.__args__[1]]
+                item_types = [args[1]]
             elif _is_generic(field_type, typing.Iterable):
-                item_types = [field_type.__args__[0]]
+                item_types = [args[0]]
 
             for item_type in item_types:
                 item_type = self._dataclass.resolve_type(item_type)
@@ -314,6 +317,7 @@ class SchemaBuilder(object):
         vfield: _SchemaBuilderField,
     ) -> typing.Tuple[JsonDict, bool]:
         field_type = self._dataclass.resolve_type(field_type)
+        args = typing_inspect.get_args(field_type)
         required = True
         try:
             schema = self._types[field_type].json_schema()
@@ -332,10 +336,10 @@ class SchemaBuilder(object):
         elif _is_union(field_type):
             schemas = [
                 self._get_field_schema(item_type, parent_builders, vfield)[0]
-                for item_type in field_type.__args__
+                for item_type in args
             ]
             field_schema = {"anyOf": schemas}
-            required = type(None) not in field_type.__args__
+            required = type(None) not in args
         elif _issubclass_safe(field_type, enum.Enum):
             member_types = set()
             values = []
@@ -368,18 +372,15 @@ class SchemaBuilder(object):
                     field_schema[schema_attr] = attr
         elif _is_generic(field_type, typing.Mapping):
             field_schema = {"type": "object"}
-            add = self._get_field_schema(
-                field_type.__args__[1], parent_builders, vfield
-            )[0]
+            add = self._get_field_schema(args[1], parent_builders, vfield)[0]
             field_schema["additionalProperties"] = add
         elif _is_generic(field_type, tuple) and (
-            len(field_type.__args__) != 2
-            or field_type.__args__[len(field_type.__args__) - 1] is not ...
+            len(args) != 2 or args[len(args) - 1] is not ...
         ):
-            arg_len = len(field_type.__args__)
+            arg_len = len(args)
             items = [
                 self._get_field_schema(arg_type, parent_builders, vfield)[0]
-                for arg_type in field_type.__args__
+                for arg_type in args
             ]
             field_schema = {
                 "type": "array",
@@ -391,7 +392,7 @@ class SchemaBuilder(object):
         elif _is_generic(field_type, typing.Iterable):
             field_schema = {"type": "array"}
             field_schema["items"] = self._get_field_schema(
-                field_type.__args__[0], parent_builders, vfield
+                args[0], parent_builders, vfield
             )[0]
         elif hasattr(field_type, "__supertype__"):  # NewType fields
             field_schema, _ = self._get_field_schema(

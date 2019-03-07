@@ -2,6 +2,8 @@
 import dataclasses
 import typing
 
+import typing_inspect  # type: ignore
+
 from serpyco.exception import NotADataClassError
 
 JsonDict = typing.Dict[str, typing.Any]
@@ -32,21 +34,18 @@ def _issubclass_safe(field_type: type, types: TypeOrTypes) -> bool:
 
 
 def _is_generic(field_type: type, types: TypeOrTypes) -> bool:
-    try:
-        return issubclass(getattr(field_type, "__origin__"), types)
-    except (TypeError, AttributeError):
-        return False
+    return (
+        typing_inspect.is_generic_type(field_type)
+        or typing_inspect.is_tuple_type(field_type)
+    ) and issubclass(typing_inspect.get_origin(field_type), types)
 
 
 def _is_union(field_type: type) -> bool:
-    try:
-        return getattr(field_type, "__origin__") is typing.Union
-    except AttributeError:
-        return False
+    return typing_inspect.is_union_type(field_type)  # type: ignore
 
 
 def _is_optional(field_type: type) -> bool:
-    return _is_union(field_type) and type(None) in getattr(field_type, "__args__")
+    return typing_inspect.is_optional_type(field_type)  # type: ignore
 
 
 @dataclasses.dataclass(init=False)
@@ -56,16 +55,9 @@ class _DataClassParams(object):
     parameters: typing.Tuple[typing.Any, ...]
 
     def __init__(self, type_: type) -> None:
-        try:
-            self.arguments = getattr(type_, "__args__")
-        except AttributeError:
-            self.arguments = ()
-        try:
-            self.type_ = getattr(type_, "__origin__")
-            self.parameters = getattr(self.type_, "__parameters__")
-        except AttributeError:
-            self.type_ = type_
-            self.parameters = ()
+        self.arguments = typing_inspect.get_args(type_, evaluate=True)
+        self.type_ = typing_inspect.get_origin(type_) or type_
+        self.parameters = typing_inspect.get_parameters(self.type_)
         if not dataclasses.is_dataclass(self.type_):
             raise NotADataClassError(f"{self.type_} is not a dataclass")
 
