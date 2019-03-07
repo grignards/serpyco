@@ -1143,3 +1143,29 @@ def test_unit__cast_on_load__ok__with_optional():
     serializer = serpyco.Serializer(OptionalCastOnLoad)
 
     assert OptionalCastOnLoad(foo=2) == serializer.load({"foo": "2"})
+
+
+def test_unit__dict__ok__with_field_encoder():
+    class NeedFieldEncoder(str, enum.Enum):
+        FOO = "FOO"
+        BAR = "BAR"
+
+    @dataclasses.dataclass
+    class WithFieldEncoder:
+        foo: typing.Dict[str, NeedFieldEncoder]
+        bar: typing.Dict[NeedFieldEncoder, str]
+        foobar: typing.Dict[NeedFieldEncoder, NeedFieldEncoder]
+
+    serializer = serpyco.Serializer(WithFieldEncoder)
+
+    obj = WithFieldEncoder(
+        foo={"f": NeedFieldEncoder.FOO},
+        bar={NeedFieldEncoder.BAR: "b"},
+        foobar={NeedFieldEncoder.FOO: NeedFieldEncoder.BAR},
+    )
+
+    dict_ = {"foo": {"f": "FOO"}, "bar": {"BAR": "b"}, "foobar": {"FOO": "BAR"}}
+
+    assert serializer.dump(obj) == dict_
+
+    assert serializer.load(dict_) == obj

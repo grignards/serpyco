@@ -739,17 +739,17 @@ cdef class DictFieldEncoder(FieldEncoder):
     cpdef inline load(self, value: JsonEncodable):
         if self._key_encoder and self._value_encoder:
             return {
-                self._key_encoder(k): self._value_encoder(v)
+                self._key_encoder.load(k): self._value_encoder.load(v)
                 for k, v in value.items()
             }
         elif self._key_encoder and not self._value_encoder:
             return {
-                self._key_encoder(k): v
+                self._key_encoder.load(k): v
                 for k, v in value.items()
             }
         elif not self._key_encoder and self._value_encoder:
             return {
-                k: self._value_encoder(v)
+                k: self._value_encoder.load(v)
                 for k, v in value.items()
             }
         else:
