@@ -42,7 +42,7 @@ tests-3.7:
 pages:
   stage: doc
   script:
-    - python setup.py install
+    - python setup.py develop
     - apt-get update -q -y
     - apt-get install make
     - pip install sphinx sphinx-autodoc-typehints sphinx-rtd-theme sphinxcontrib-websupport
