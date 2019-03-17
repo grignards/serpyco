@@ -1169,3 +1169,16 @@ def test_unit__dict__ok__with_field_encoder():
     assert serializer.dump(obj) == dict_
 
     assert serializer.load(dict_) == obj
+
+
+def test_unit__optional__ok__with_validator():
+    validate = mock.Mock()
+
+    @dataclasses.dataclass
+    class WithVal:
+        foo: typing.Optional[str] = serpyco.field(validator=validate, default="bar")
+
+    serializer = serpyco.Serializer(WithVal)
+
+    assert serializer.load({}) == WithVal()
+    validate.assert_not_called()
