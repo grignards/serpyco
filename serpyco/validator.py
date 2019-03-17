@@ -58,8 +58,12 @@ class AbstractValidator(abc.ABC):
 
         for d in data:
             for path, validator in self._field_validators:
-                for value in _get_values(path.split("/")[1:], d):
-                    validator(value)
+                try:
+                    for value in _get_values(path.split("/")[1:], d):
+                        validator(value)
+                except KeyError:
+                    # The value is not present, so do not validate
+                    pass
 
 
 class RapidJsonValidator(AbstractValidator):
