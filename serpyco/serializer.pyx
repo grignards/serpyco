@@ -119,7 +119,7 @@ cdef class Serializer(object):
         dataclass,
         many: bool = False,
         omit_none: bool = True,
-        type_encoders: typing.Dict[type, FieldEncoder] = {},
+        type_encoders: typing.Dict[type, FieldEncoder] = None,
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
         _parent_serializers: typing.List["Serializer"] = None
@@ -138,7 +138,7 @@ cdef class Serializer(object):
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
         self._omit_none = omit_none
-        self._types = type_encoders
+        self._types = type_encoders or {}
         self._only = only or []
         self._exclude = exclude or []
         self._parent_serializers = _parent_serializers or []
