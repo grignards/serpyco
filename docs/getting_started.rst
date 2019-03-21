@@ -270,6 +270,8 @@ You can register your own field encoders for any type:
 
         def json_schema(self) -> dict:
             # optional, but helpful to specify a custom validation
+            # if you don't want any validation, return {} in your 
+            # implementation.
             return {
                 "type": "array",
                 "maxItems": 2,
