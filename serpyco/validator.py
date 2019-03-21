@@ -86,17 +86,19 @@ class RapidJsonValidator(AbstractValidator):
             self._validator(json_string)
         except rapidjson.ValidationError as exc:
             data = rapidjson.loads(json_string)
-            msg = self._get_error_message(exc, data)
+            msg = self._get_error_message(exc, data, self._schema)
             raise ValidationError(msg, exc.args)
 
     def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         self.validate_json(rapidjson.dumps(data))
 
-    def _get_error_message(self, exc: rapidjson.ValidationError, data: JsonDict) -> str:
+    def _get_error_message(
+        self, exc: rapidjson.ValidationError, data: JsonDict, schema: JsonDict
+    ) -> str:
         schema_part_name, schema_path, data_path = exc.args
         d = list(_get_values(data_path.split("/")[1:], data))[0]
 
-        schema_values = list(_get_values(schema_path.split("/")[1:], self._schema))
+        schema_values = list(_get_values(schema_path.split("/")[1:], schema))
         schema_part = schema_values[0][schema_part_name]
 
         # transform the json path to something more python-like
@@ -109,12 +111,12 @@ class RapidJsonValidator(AbstractValidator):
             msg = f"has type {data_type}, expected {schema_part}"
         elif "pattern" == schema_part_name:
             msg = (
-                f'string does not match pattern, got "{d}",'
+                f'string does not match pattern, got "{d}", '
                 + f'expected "{schema_part}"'
             )
         elif "format" == schema_part_name:
             msg = (
-                f'string doesn\'t match defined format, got "{d}",'
+                f'string doesn\'t match defined format, got "{d}", '
                 + f' expected "{schema_part}"'
             )
         elif "maximum" == schema_part_name:
@@ -142,6 +144,21 @@ class RapidJsonValidator(AbstractValidator):
             msg = f"is missing required properties {missing}"
         elif "enum" == schema_part_name:
             msg = f'value must be one of {schema_part}, got "{d}"'
+        elif "anyOf" == schema_part_name:
+            messages: typing.List[str] = []
+            for sub_schema in schema_part:
+                # This was an optional, let's validate with the sub-schemas to get a
+                # precise error message
+                val = rapidjson.Validator(rapidjson.dumps(sub_schema))
+                try:
+                    val(rapidjson.dumps(d))
+                except rapidjson.ValidationError as e:
+                    messages.append(
+                        " - "
+                        + self._get_error_message(e, d, sub_schema).split(":")[-1][1:-1]
+                    )
+            msg_string = "\n".join(messages)
+            msg = f"does not validate for any Union parameters. Details:\n{msg_string}"
         else:
             msg = f"validation error {exc}"
         return f"{data_path}: {msg}."
