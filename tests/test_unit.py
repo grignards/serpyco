@@ -1182,3 +1182,19 @@ def test_unit__optional__ok__with_validator():
 
     assert serializer.load({}) == WithVal()
     validate.assert_not_called()
+
+
+def test_unit__optional__err__validation_error_message():
+    @dataclasses.dataclass
+    class Opt:
+        foo: typing.Optional[str] = serpyco.string_field(pattern="[A-Z]*")
+
+    serializer = serpyco.Serializer(Opt)
+
+    with pytest.raises(
+        serpyco.ValidationError,
+        match=r'data\["foo"\]: does not validate for any Union parameters.'
+        r" Details:\\n - string does not match pattern, "
+        r'got "bar", expected "\[A-Z\]\*"\\n - has type str, expected nul.',
+    ):
+        serializer.load({"foo": "bar"})

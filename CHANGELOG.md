@@ -1,5 +1,14 @@
 # Serpyco changelog
 
+## v0.16.12
+
+- fix: remove dictionary used as default value for encoders
+- feat: improve validation error message when using `Union`/`Optional`
+
+## v0.16.11
+
+- fix: `Optional` fields with a `validator` function
+
 ## v0.16.10
 
 - refactor: use typing_inspect instead of self-made code (new dependency)
