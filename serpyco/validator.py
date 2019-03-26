@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import abc
+import copy
 import re
 import typing
 
@@ -82,12 +83,35 @@ class RapidJsonValidator(AbstractValidator):
         self._validator = rapidjson.Validator(rapidjson.dumps(schema))
 
     def validate_json(self, json_string: str) -> None:
-        try:
-            self._validator(json_string)
-        except rapidjson.ValidationError as exc:
-            data = rapidjson.loads(json_string)
-            msg = self._get_error_message(exc, data, self._schema)
-            raise ValidationError(msg, exc.args)
+        validates = False
+        validator = self._validator
+        messages: typing.List[str] = []
+        exc_args: typing.List[typing.Tuple[str, str, str]] = []
+        data: typing.Optional[JsonDict] = None
+        schema_copy: typing.Optional[JsonDict] = None
+        while not validates:
+            try:
+                validator(json_string)
+                validates = True
+            except rapidjson.ValidationError as exc:
+                if data is None:
+                    data = rapidjson.loads(json_string)
+                if schema_copy is None:
+                    schema_copy = copy.deepcopy(self._schema)
+
+                messages.append(self._get_error_message(exc, data, schema_copy))
+                exc_args.append(exc.args)
+
+                schema_components = exc.args[1].split("/")[1:]
+                schema_parent = schema_copy
+                while len(schema_components) > 1:
+                    schema_parent = schema_parent[schema_components[0]]
+                    schema_components = schema_components[1:]
+                schema_parent[schema_components[0]] = {}
+                validator = rapidjson.Validator(rapidjson.dumps(schema_copy))
+
+        if messages:
+            raise ValidationError("\n".join(messages), exc_args)
 
     def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         self.validate_json(rapidjson.dumps(data))
@@ -147,7 +171,7 @@ class RapidJsonValidator(AbstractValidator):
         elif "anyOf" == schema_part_name:
             messages: typing.List[str] = []
             for sub_schema in schema_part:
-                # This was an optional, let's validate with the sub-schemas to get a
+                # This was an union, let's validate with the sub-schemas to get a
                 # precise error message
                 val = rapidjson.Validator(rapidjson.dumps(sub_schema))
                 try:
