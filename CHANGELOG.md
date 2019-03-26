@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.17
+
+- refactor: ValidationError exception now includes a dictionary of path/message
+
 ## v0.16.13
 
 - fix: error when using a user validation function in a nested object list.
