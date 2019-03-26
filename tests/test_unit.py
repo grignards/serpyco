@@ -1198,3 +1198,20 @@ def test_unit__optional__err__validation_error_message():
         r'got "bar", expected "\[A-Z\]\*"\\n - has type str, expected nul.',
     ):
         serializer.load({"foo": "bar"})
+
+
+def test_unit__embedded_dataclass_list__ok__with_validator():
+
+    validator = mock.Mock()
+
+    @dataclasses.dataclass
+    class Foo:
+        bar: str = serpyco.field(validator=validator)
+
+    @dataclasses.dataclass
+    class ListFoo:
+        foos: typing.List[Foo]
+
+    serializer = serpyco.Serializer(ListFoo)
+    serializer.load({"foos": [{"bar": "hello"}, {"bar": "world"}]})
+    assert 2 == validator.call_count

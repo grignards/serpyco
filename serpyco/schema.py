@@ -210,11 +210,13 @@ class SchemaBuilder(object):
 
             # Update definitions to objects
             item_types = [field_type]
+            is_iterable = False
             if _is_union(field_type):
                 item_types = args
             elif _is_generic(field_type, typing.Mapping):
                 item_types = [args[1]]
             elif _is_generic(field_type, typing.Iterable):
+                is_iterable = True
                 item_types = [args[0]]
 
             for item_type in item_types:
@@ -262,9 +264,11 @@ class SchemaBuilder(object):
 
                         # Get the format validators defined in the sub-schema
                         for sub_field_name, validator in sub._field_validators:
-                            self._field_validators.append(
-                                (vfield.field.name + "/" + sub_field_name, validator)
-                            )
+                            if is_iterable:
+                                path = vfield.field.name + "/*/" + sub_field_name
+                            else:
+                                path = vfield.field.name + "/" + sub_field_name
+                            self._field_validators.append((path, validator))
 
                         definitions[definition_name] = None
                         definitions.update(item_schema)
