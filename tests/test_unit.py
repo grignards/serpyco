@@ -1215,3 +1215,18 @@ def test_unit__embedded_dataclass_list__ok__with_validator():
     serializer = serpyco.Serializer(ListFoo)
     serializer.load({"foos": [{"bar": "hello"}, {"bar": "world"}]})
     assert 2 == validator.call_count
+
+
+def test_unit__validation__ok__several_errors():
+    @dataclasses.dataclass
+    class Foo:
+        bar: str
+        foo: int
+
+    serializer = serpyco.Serializer(Foo)
+    with pytest.raises(
+        serpyco.ValidationError,
+        match=r'data\["bar"\]: has type int, expected string.\\n'
+        r'data\["foo"\]: has type str, expected integer.',
+    ):
+        serializer.load({"bar": 12, "foo": "hello"})
