@@ -14,12 +14,15 @@ class NoEncoderError(BaseSerpycoError):
 
 
 class ValidationError(BaseSerpycoError):
-    def __init__(
-        self,
-        msg: str,
-        args: typing.Optional[typing.List[typing.Tuple[str, str, str]]] = None,
-    ):
-        super().__init__(msg, args)
+    """Raised when an error is found during validation of data.
+
+    :param msg: formatted exception message(s).
+    :param errors: dictionary of error message(s) where the key
+    is the JSON path to the invalid data.
+    """
+
+    def __init__(self, msg: str, errors: typing.Optional[typing.Dict[str, str]] = None):
+        super().__init__(msg, errors or {"#": msg})
 
 
 class NotADataClassError(BaseSerpycoError):

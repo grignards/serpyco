@@ -86,7 +86,7 @@ class RapidJsonValidator(AbstractValidator):
         validates = False
         validator = self._validator
         messages: typing.List[str] = []
-        exc_args: typing.List[typing.Tuple[str, str, str]] = []
+        data_paths: typing.List[str] = []
         data: typing.Optional[JsonDict] = None
         schema_copy: typing.Optional[JsonDict] = None
         while not validates:
@@ -100,7 +100,7 @@ class RapidJsonValidator(AbstractValidator):
                     schema_copy = copy.deepcopy(self._schema)
 
                 messages.append(self._get_error_message(exc, data, schema_copy))
-                exc_args.append(exc.args)
+                data_paths.append(exc.args[1])
 
                 schema_components = exc.args[1].split("/")[1:]
                 schema_parent = schema_copy
@@ -111,7 +111,7 @@ class RapidJsonValidator(AbstractValidator):
                 validator = rapidjson.Validator(rapidjson.dumps(schema_copy))
 
         if messages:
-            raise ValidationError("\n".join(messages), exc_args)
+            raise ValidationError("\n".join(messages), dict(zip(data_paths, messages)))
 
     def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         self.validate_json(rapidjson.dumps(data))
