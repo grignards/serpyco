@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.16.13
+
+- fix: error when using a user validation function in a nested object list.
+- feat: all validation errors are now included in `ValidationError` exception.
+
 ## v0.16.12
 
 - fix: remove dictionary used as default value for encoders
