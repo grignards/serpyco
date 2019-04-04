@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.17.1
+
+- fix: validation error of empty dictionary properly raises a `ValidationError` exception
+
 ## v0.17
 
 - refactor: ValidationError exception now includes a dictionary of path/message
