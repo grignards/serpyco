@@ -104,10 +104,13 @@ class RapidJsonValidator(AbstractValidator):
 
                 schema_components = exc.args[1].split("/")[1:]
                 schema_parent = schema_copy
-                while len(schema_components) > 1:
-                    schema_parent = schema_parent[schema_components[0]]
-                    schema_components = schema_components[1:]
-                schema_parent[schema_components[0]] = {}
+                if not schema_components:
+                    schema_copy = {}
+                else:
+                    while len(schema_components) > 1:
+                        schema_parent = schema_parent[schema_components[0]]
+                        schema_components = schema_components[1:]
+                    schema_parent[schema_components[0]] = {}
                 validator = rapidjson.Validator(rapidjson.dumps(schema_copy))
 
         if messages:

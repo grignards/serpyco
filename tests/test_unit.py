@@ -1230,3 +1230,12 @@ def test_unit__validation__ok__several_errors():
         r'data\["foo"\]: has type str, expected integer.',
     ):
         serializer.load({"bar": 12, "foo": "hello"})
+
+
+def test_unit__validation__ok__empty_content():
+    @dataclasses.dataclass
+    class Foo:
+        bar: str
+
+    with pytest.raises(serpyco.ValidationError):
+        serpyco.Serializer(Foo).load({})
