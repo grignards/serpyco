@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.17.2
+
+- fix: validation error message with optional dataclass
+
 ## v0.17.1
 
 - fix: validation error of empty dictionary properly raises a `ValidationError` exception
