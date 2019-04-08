@@ -176,6 +176,11 @@ class RapidJsonValidator(AbstractValidator):
             for sub_schema in schema_part:
                 # This was an union, let's validate with the sub-schemas to get a
                 # precise error message
+                try:
+                    ref = sub_schema["$ref"].split("/")[1:]
+                    sub_schema = next(_get_values(ref, schema))
+                except KeyError:
+                    pass
                 val = rapidjson.Validator(rapidjson.dumps(sub_schema))
                 try:
                     val(rapidjson.dumps(d))

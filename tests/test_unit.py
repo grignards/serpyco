@@ -1239,3 +1239,22 @@ def test_unit__validation__ok__empty_content():
 
     with pytest.raises(serpyco.ValidationError):
         serpyco.Serializer(Foo).load({})
+
+
+def test_unit__validation_error_message__err__optional_sub_dataclass():
+    @dataclasses.dataclass
+    class Foo:
+        bar: str
+
+    @dataclasses.dataclass
+    class Bar:
+        hello: int
+        foo: typing.Optional[Foo]
+
+    with pytest.raises(
+        serpyco.ValidationError,
+        match=r'data\["foo"\]: does not validate for any Union parameters. Details:\\n'
+        r' - is missing required properties "bar"\\n'
+        r" - has type dict, expected null.",
+    ):
+        serpyco.Serializer(Bar).load({"hello": 42, "foo": {}})
