@@ -8,10 +8,15 @@ import typing
 import uuid
 from unittest import mock
 
-import dateutil
 import pytest
 
 import serpyco
+
+iso8601_pattern = (
+    r"^[0-9]{4}-[0-9][0-9]-[0-9][0-9]T"  # YYYY-MM-DD
+    r"[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)"  # HH:mm:ss.ssss
+    r"?(([+-][0-9][0-9]:[0-9][0-9])|Z)?$"  # timezone
+)
 
 
 class Enum(enum.Enum):
@@ -79,9 +84,7 @@ def types_object() -> Types:
         nested=Simple(name="bar"),
         nesteds=[Simple(name="hello"), Simple(name="world")],
         mapping={"foo": "bar"},
-        datetime_=datetime.datetime(
-            2018, 11, 1, 14, 23, 43, 123456, tzinfo=dateutil.tz.tzutc()
-        ),
+        datetime_=datetime.datetime(2018, 11, 1, 14, 23, 43, 123456),
     )
 
 
@@ -98,7 +101,7 @@ def test_unit__dump__ok__nominal_case(types_object: Types) -> None:
         "nested": {"name": "bar"},
         "nesteds": [{"name": "hello"}, {"name": "world"}],
         "mapping": {"foo": "bar"},
-        "datetime_": "2018-11-01T14:23:43.123456+00:00",
+        "datetime_": "2018-11-01T14:23:43.123456",
     } == serializer.dump(types_object)
 
 
@@ -130,7 +133,7 @@ def test_unit__load__ok__nominal_case(types_object: Types) -> None:
             "nested": {"name": "bar"},
             "nesteds": [{"name": "hello"}, {"name": "world"}],
             "mapping": {"foo": "bar"},
-            "datetime_": "2018-11-01T14:23:43.123456Z",
+            "datetime_": "2018-11-01T14:23:43.123456",
         }
     )
 
@@ -150,7 +153,7 @@ def test_unit__load_json__ok__nominal_case(types_object: Types) -> None:
                 "nested": {"name": "bar"},
                 "nesteds": [{"name": "hello"}, {"name": "world"}],
                 "mapping": {"foo": "bar"},
-                "datetime_": "2018-11-01T14:23:43.123456Z",
+                "datetime_": "2018-11-01T14:23:43.123456",
             }
         )
     )
@@ -187,7 +190,11 @@ def test_unit__json_schema__ok__nominal_case() -> None:
         "description": "Testing class for supported serializer types.",
         "properties": {
             "boolean": {"type": "boolean"},
-            "datetime_": {"format": "date-time", "type": "string"},
+            "datetime_": {
+                "format": "date-time",
+                "type": "string",
+                "pattern": iso8601_pattern,
+            },
             "enum_": {
                 "description": "An enumerate.",
                 "enum": [1, 2],
@@ -239,7 +246,11 @@ def test_unit__json_schema__ok__with_many() -> None:
             "description": "Testing class for supported serializer types.",
             "properties": {
                 "boolean": {"type": "boolean"},
-                "datetime_": {"format": "date-time", "type": "string"},
+                "datetime_": {
+                    "format": "date-time",
+                    "type": "string",
+                    "pattern": iso8601_pattern,
+                },
                 "enum_": {
                     "description": "An enumerate.",
                     "enum": [1, 2],
@@ -664,9 +675,10 @@ def test_unit__field_default__ok__nominal_case():
             "foo": {"default": "foo", "type": "string"},
             "bar": {"default": "bar", "type": "string"},
             "datetime_": {
-                "default": "2018-11-24T19:00:00+00:00",
+                "default": "2018-11-24T19:00:00",
                 "type": "string",
                 "format": "date-time",
+                "pattern": iso8601_pattern,
             },
         },
         "type": "object",

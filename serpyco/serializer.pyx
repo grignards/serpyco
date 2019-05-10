@@ -779,27 +779,32 @@ cdef class DictFieldEncoder(FieldEncoder):
 
 @cython.final
 cdef class DateTimeFieldEncoder(FieldEncoder):
-    """Encodes datetimes to RFC3339 format"""
+    """Encodes datetimes to RFC3339/ISO8601 format"""
+
+    iso8601_pattern = (
+        r"^[0-9]{4}-[0-9][0-9]-[0-9][0-9]T"  # YYYY-MM-DD
+        r"[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)"  # HH:mm:ss.ssss
+        r"?(([+-][0-9][0-9]:[0-9][0-9])|Z)?$"  # timezone
+    )
 
     cpdef inline dump(self, value):
         try:
-            out = value.isoformat()
-
-            # Assume UTC if timezone is missing
-            if value.tzinfo is None:
-                return out + "+00:00"
-            return out
+            return value.isoformat()
         except AttributeError:
             raise ValidationError(f"{value} is not a datetime.datetime instance")
 
     cpdef inline load(self, value):
         try:
-            return dateutil.parser.parse(typing.cast(str, value))
+            return dateutil.parser.parse(value)
         except (ValueError, OverflowError):
-            raise ValidationError(f"{value} is not a valid datetime string")
+            raise ValidationError(f"{value} is not a valid datetime")
 
     def json_schema(self) -> JsonDict:
-        return {"type": "string", "format": "date-time"}
+        return {
+            "type": "string",
+            "format": "date-time",
+            "pattern": self.iso8601_pattern
+        }
 
 
 @cython.final
