@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v0.17.3
+
+- fix: avoid adding a timezone to naive datetime objects.
+- feat: add pattern for validating datetime strings
+
 ## v0.17.2
 
 - fix: validation error message with optional dataclass
