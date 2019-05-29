@@ -185,26 +185,22 @@ class SchemaBuilder(object):
                 field_type, parent_builders, vfield=vfield
             )
 
-            f = getattr(vfield.field, "default_factory")
-            default_value: typing.Any = dataclasses.MISSING
-            if vfield.field.default != dataclasses.MISSING:
-                default_value = vfield.field.default
-            elif f != dataclasses.MISSING:
-                f = self._dataclass.resolve_type(f)
-                default_value = f()
+            default_value = vfield.field.default
+            # A field is not required if either a:
+            # - default value
+            # - default factory
+            # is provided.
+            is_required = (
+                default_value is dataclasses.MISSING
+                and vfield.field.default_factory is dataclasses.MISSING  # type: ignore
+            )
 
+            # If a default value is provided, put it in the schema.
+            # useful for documentation generation for example
             if default_value != dataclasses.MISSING:
-                is_required = False
                 if field_type in self._types and default_value is not None:
                     default_value = self._types[field_type].dump(default_value)
-                elif dataclasses.is_dataclass(default_value):
-                    default_value = dataclasses.asdict(default_value)
-                if type(default_value) in list(JSON_ENCODABLE_TYPES.keys()) + [
-                    dict,
-                    list,
-                    type(None),
-                ]:
-                    field_schema["default"] = default_value
+                field_schema["default"] = default_value
 
             properties[vfield.hints.dict_key] = field_schema
 

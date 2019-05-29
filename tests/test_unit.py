@@ -673,7 +673,7 @@ def test_unit__field_default__ok__nominal_case():
         "description": "Description test class",
         "properties": {
             "foo": {"default": "foo", "type": "string"},
-            "bar": {"default": "bar", "type": "string"},
+            "bar": {"type": "string"},
             "datetime_": {
                 "default": "2018-11-24T19:00:00",
                 "type": "string",
@@ -939,7 +939,7 @@ def test_unit__schema__ok__with_default_dataclass():
         },
         "description": "Class",
         "properties": {
-            "nested": {"$ref": "#/definitions/Nested", "default": {"name": "Hello"}},
+            "nested": {"$ref": "#/definitions/Nested"},
             "one": {"type": "string"},
         },
         "required": ["one"],
@@ -1081,6 +1081,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "description": "OptionalCustom.",
         "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
         "type": "object",
+        "required": ["name"],
     }
 
 
