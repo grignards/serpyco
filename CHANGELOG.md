@@ -1,5 +1,14 @@
 # Serpyco changelog
 
+## v0.17.4
+
+- fix: ensure order of missing fields in error message
+- fix: ensure definitions name are unique by using the module name of the dataclass as a prefix
+
+## v0.17.3
+
+- 
+
 ## v0.17.2
 
 - fix: validation error message with optional dataclass
