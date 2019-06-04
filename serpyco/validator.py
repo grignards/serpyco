@@ -166,7 +166,7 @@ class RapidJsonValidator(AbstractValidator):
             props = list(
                 set(typing.cast(typing.List[str], schema_part)) - set(d.keys())
             )
-            props = list(map(lambda s: f'"{s}"', props))
+            props = [f'"{s}"' for s in sorted(props)]
             missing = ", ".join(props)
             msg = f"is missing required properties {missing}"
         elif "enum" == schema_part_name:

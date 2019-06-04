@@ -180,7 +180,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "Simple": {
+            "test_unit.Simple": {
                 "description": "Basic class.",
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
@@ -204,8 +204,11 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "integer": {"type": "integer"},
             "items": {"items": {"type": "string"}, "type": "array"},
             "mapping": {"additionalProperties": {"type": "string"}, "type": "object"},
-            "nested": {"$ref": "#/definitions/Simple"},
-            "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
+            "nested": {"$ref": "#/definitions/test_unit.Simple"},
+            "nesteds": {
+                "items": {"$ref": "#/definitions/test_unit.Simple"},
+                "type": "array",
+            },
             "number": {"type": "number"},
             "optional": {
                 "anyOf": [{"type": "integer"}, {"type": "null"}],
@@ -235,7 +238,7 @@ def test_unit__json_schema__ok__with_many() -> None:
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "Simple": {
+            "test_unit.Simple": {
                 "description": "Basic class.",
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
@@ -263,8 +266,11 @@ def test_unit__json_schema__ok__with_many() -> None:
                     "additionalProperties": {"type": "string"},
                     "type": "object",
                 },
-                "nested": {"$ref": "#/definitions/Simple"},
-                "nesteds": {"items": {"$ref": "#/definitions/Simple"}, "type": "array"},
+                "nested": {"$ref": "#/definitions/test_unit.Simple"},
+                "nesteds": {
+                    "items": {"$ref": "#/definitions/test_unit.Simple"},
+                    "type": "array",
+                },
                 "number": {"type": "number"},
                 "optional": {
                     "anyOf": [{"type": "integer"}, {"type": "null"}],
@@ -296,7 +302,7 @@ def test_unit__json_schema__ok__cycle() -> None:
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "Second": {
+            "test_unit.Second": {
                 "description": "Cycle test class",
                 "properties": {"first": {"$ref": "#"}},
                 "required": ["first"],
@@ -304,13 +310,13 @@ def test_unit__json_schema__ok__cycle() -> None:
             }
         },
         "description": "Cycle test class",
-        "properties": {"second": {"$ref": "#/definitions/Second"}},
+        "properties": {"second": {"$ref": "#/definitions/test_unit.Second"}},
         "required": ["second"],
         "type": "object",
     } == builder.json_schema()
     nested = builder.nested_builders()
     assert 1 == len(nested)
-    assert "Second" == nested[0][0]
+    assert "test_unit.Second" == nested[0][0]
     assert isinstance(nested[0][1], serpyco.SchemaBuilder)
 
 
@@ -455,7 +461,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
         "$schema": "http://json-schema.org/draft-04/schema#",
         "description": "String field test class",
         "definitions": {
-            "Nested": {
+            "test_unit.Nested": {
                 "description": "Nested",
                 "properties": {"name": {"type": "string", "format": "date-time"}},
                 "required": ["name"],
@@ -470,7 +476,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
                 "minLength": 3,
                 "maxLength": 24,
             },
-            "nested": {"$ref": "#/definitions/Nested"},
+            "nested": {"$ref": "#/definitions/test_unit.Nested"},
         },
         "required": ["foo", "nested"],
         "type": "object",
@@ -673,7 +679,7 @@ def test_unit__field_default__ok__nominal_case():
         "description": "Description test class",
         "properties": {
             "foo": {"default": "foo", "type": "string"},
-            "bar": {"default": "bar", "type": "string"},
+            "bar": {"type": "string"},
             "datetime_": {
                 "default": "2018-11-24T19:00:00",
                 "type": "string",
@@ -766,13 +772,13 @@ def test_unit__nested_field__ok__nominal_case():
         "$schema": "http://json-schema.org/draft-04/schema#",
         "description": "Parent test class",
         "definitions": {
-            "Nested_exclude_foo": {
+            "test_unit.Nested_exclude_foo": {
                 "type": "object",
                 "description": "Nested test class",
                 "properties": {"bar": {"type": "string"}},
                 "required": ["bar"],
             },
-            "Nested_only_foo": {
+            "test_unit.Nested_only_foo": {
                 "type": "object",
                 "description": "Nested test class",
                 "properties": {"foo": {"type": "string"}},
@@ -780,8 +786,8 @@ def test_unit__nested_field__ok__nominal_case():
             },
         },
         "properties": {
-            "first": {"$ref": "#/definitions/Nested_only_foo"},
-            "second": {"$ref": "#/definitions/Nested_exclude_foo"},
+            "first": {"$ref": "#/definitions/test_unit.Nested_only_foo"},
+            "second": {"$ref": "#/definitions/test_unit.Nested_exclude_foo"},
         },
         "required": ["first", "second"],
         "type": "object",
@@ -931,7 +937,7 @@ def test_unit__schema__ok__with_default_dataclass():
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "Nested": {
+            "test_unit.Nested": {
                 "description": "Nested",
                 "properties": {"name": {"default": "Hello", "type": "string"}},
                 "type": "object",
@@ -939,7 +945,7 @@ def test_unit__schema__ok__with_default_dataclass():
         },
         "description": "Class",
         "properties": {
-            "nested": {"$ref": "#/definitions/Nested", "default": {"name": "Hello"}},
+            "nested": {"$ref": "#/definitions/test_unit.Nested"},
             "one": {"type": "string"},
         },
         "required": ["one"],
@@ -975,7 +981,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "Gen[int]": {
+            "test_unit.Gen[int]": {
                 "description": "Generic.",
                 "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
                 "required": ["foo", "bar"],
@@ -983,7 +989,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
             }
         },
         "description": "With a generic.",
-        "properties": {"nested": {"$ref": "#/definitions/Gen[int]"}},
+        "properties": {"nested": {"$ref": "#/definitions/test_unit.Gen[int]"}},
         "required": ["nested"],
         "type": "object",
     } == serializer.json_schema()
@@ -1081,6 +1087,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "description": "OptionalCustom.",
         "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
         "type": "object",
+        "required": ["name"],
     }
 
 
