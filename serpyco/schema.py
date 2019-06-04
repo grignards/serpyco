@@ -35,6 +35,8 @@ def default_get_definition_name(
     with different arguments or only/exclude parameters
     """
     name = type_.__name__
+    if type_.__module__ is not None:
+        name = f"{type_.__module__}.{name}"
     if arguments:
         name += "[" + ",".join([arg.__name__ for arg in arguments]) + "]"
     if only:
