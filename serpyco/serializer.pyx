@@ -104,7 +104,7 @@ cdef class Serializer(object):
     cdef list _post_loaders
     cdef tuple _field_casters
     cdef dict _field_encoders
-    cdef dict _types
+    cdef dict _type_encoders
     cdef list _only
     cdef list _exclude
     _global_types = {
@@ -138,7 +138,7 @@ cdef class Serializer(object):
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
         self._omit_none = omit_none
-        self._types = type_encoders or {}
+        self._type_encoders = type_encoders or {}
         self._only = only or []
         self._exclude = exclude or []
         self._parent_serializers = _parent_serializers or []
@@ -194,7 +194,7 @@ cdef class Serializer(object):
             many=many,
             only=only,
             exclude=exclude,
-            type_encoders={**self._global_types, **self._types}
+            type_encoders={**self._global_types, **self._type_encoders}
         )
         self._validator = RapidJsonValidator(
             builder.json_schema(),
@@ -537,8 +537,8 @@ cdef class Serializer(object):
         field_type = self._dataclass.resolve_type(field_type)
         args = typing_inspect.get_args(field_type)
 
-        if field_type in self._types:
-            return self._types[field_type]
+        if field_type in self._type_encoders:
+            return self._type_encoders[field_type]
         elif field_type in self._global_types:
             return self._global_types[field_type]
         elif typing.Any == field_type:
@@ -612,7 +612,7 @@ cdef class Serializer(object):
             serializer = Serializer(
                 field_type,
                 omit_none=self._omit_none,
-                type_encoders=self._types,
+                type_encoders=hints.type_encoders or self._type_encoders,
                 only=hints.only,
                 exclude=hints.exclude,
                 _parent_serializers=self._parent_serializers,

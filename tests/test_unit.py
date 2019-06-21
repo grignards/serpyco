@@ -453,7 +453,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
             min_length=3,
             max_length=24,
         )
-        nested: Nested
+        nested: Nested  # type:ignore
 
     serializer = serpyco.Serializer(WithStringField)
 
@@ -550,6 +550,36 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
         "required": ["name"],
         "type": "object",
     } == second.json_schema()
+
+    @dataclasses.dataclass
+    class Nest:
+        """Nest"""
+
+        name: str
+        nested: Simple = serpyco.nested_field(type_encoders={str: Encoder()})
+
+    serializer = serpyco.Serializer(Nest)
+    assert {"name": "bar", "nested": {"name": "foo"}} == serializer.dump(
+        Nest(name="bar", nested=Simple("bar"))
+    )
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "description": "Nest",
+        "definitions": {
+            "test_unit.Simple": {
+                "description": "Basic class.",
+                "properties": {"name": {}},
+                "required": ["name"],
+                "type": "object",
+            }
+        },
+        "properties": {
+            "name": {"type": "string"},
+            "nested": {"$ref": "#/definitions/test_unit.Simple"},
+        },
+        "required": ["name", "nested"],
+        "type": "object",
+    } == serializer.json_schema()
 
 
 def test_unit__global_type_encoders__ok__nominal_case() -> None:

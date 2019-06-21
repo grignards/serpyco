@@ -4,6 +4,7 @@ import enum
 import typing
 
 from serpyco.util import FieldValidator
+from serpyco.encoder import FieldEncoder
 
 _metadata_name = "serpyco"
 
@@ -28,6 +29,9 @@ class FieldHints(object):
     exclude: typing.List[str] = dataclasses.field(default_factory=list)
     cast_on_load: bool = False
     allowed_values: typing.List[typing.Any] = dataclasses.field(default_factory=list)
+    type_encoders: typing.Dict[type, FieldEncoder] = dataclasses.field(
+        default_factory=dict
+    )
 
 
 _field_hints_names = set(f.name for f in dataclasses.fields(FieldHints))
@@ -53,9 +57,8 @@ def field(
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     allowed_values: typing.Optional[typing.List[typing.Any]] = None,
-    *args: str,
     **kwargs: typing.Any,
-) -> dataclasses.Field:  # type:ignore
+):
     """
     Convenience function to setup Serializer hints on dataclass fields.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
@@ -104,7 +107,7 @@ def field(
     metadata = kwargs.get("metadata", {})
     metadata[_metadata_name] = hints
     kwargs["metadata"] = metadata
-    return dataclasses.field(*args, **kwargs)  # type: ignore
+    return dataclasses.field(**kwargs)
 
 
 def string_field(
@@ -120,9 +123,8 @@ def string_field(
     pattern: typing.Optional[str] = None,
     min_length: typing.Optional[int] = None,
     max_length: typing.Optional[int] = None,
-    *args: str,
     **kwargs: typing.Any,
-) -> dataclasses.Field:  # type:ignore
+):
     """
     Convenience function to setup Serializer hints for a str dataclass field.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
@@ -159,7 +161,6 @@ def string_field(
         description,
         examples,
         allowed_values,
-        *args,
         format_=format_,
         pattern=pattern,
         min_length=min_length,
@@ -179,9 +180,8 @@ def number_field(
     allowed_values: typing.Optional[typing.List[typing.Any]] = None,
     minimum: typing.Optional[int] = None,
     maximum: typing.Optional[int] = None,
-    *args: str,
     **kwargs: typing.Any,
-) -> dataclasses.Field:  # type:ignore
+):  # type:ignore
     """
     Convenience function to setup Serializer hints for a number (int/float)
     dataclass field.
@@ -213,7 +213,6 @@ def number_field(
         description,
         examples,
         allowed_values,
-        *args,
         minimum=minimum,
         maximum=maximum,
         **kwargs,
@@ -223,15 +222,15 @@ def number_field(
 def nested_field(
     only: typing.Optional[typing.List[str]] = None,
     exclude: typing.Optional[typing.List[str]] = None,
+    type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[Getter] = None,
     validator: typing.Optional[FieldValidator] = None,
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
-    *args: str,
     **kwargs: typing.Any,
-) -> dataclasses.Field:  # type:ignore
+):  # type:ignore
     """
     Convenience function to setup Serializer hints on nested dataclass fields.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
@@ -260,8 +259,8 @@ def nested_field(
         description,
         examples,
         None,
-        *args,
         only=only,
         exclude=exclude,
+        type_encoders=type_encoders,
         **kwargs,
     )

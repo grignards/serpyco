@@ -247,7 +247,7 @@ class SchemaBuilder(object):
                     else:
                         sub = SchemaBuilder(
                             item_type,
-                            type_encoders=self._types,
+                            type_encoders=vfield.hints.type_encoders or self._types,
                             only=vfield.hints.only,
                             exclude=vfield.hints.exclude,
                             get_definition_name=self._get_definition_name,
