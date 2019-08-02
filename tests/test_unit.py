@@ -101,6 +101,7 @@ def test_unit__dump__ok__nominal_case(types_object: Types) -> None:
         "nested": {"name": "bar"},
         "nesteds": [{"name": "hello"}, {"name": "world"}],
         "mapping": {"foo": "bar"},
+        "optional": None,
         "datetime_": "2018-11-01T14:23:43.123456",
     } == serializer.dump(types_object)
 

@@ -95,7 +95,6 @@ cdef class Serializer(object):
     cdef tuple _post_init_fields
     cdef object _dataclass
     cdef bint _many
-    cdef bint _omit_none
     cdef object _validator
     cdef list _parent_serializers
     cdef list _pre_dumpers
@@ -137,7 +136,6 @@ cdef class Serializer(object):
         cdef Serializer parent
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
-        self._omit_none = omit_none
         self._type_encoders = type_encoders or {}
         self._only = only or []
         self._exclude = exclude or []
@@ -229,7 +227,6 @@ cdef class Serializer(object):
             self._dataclass.type_,
             self._dataclass.arguments,
             self._many,
-            self._omit_none,
             tuple(self._only),
             tuple(self._exclude)
         ))
@@ -479,10 +476,7 @@ cdef class Serializer(object):
                 encoded = sfield.getter(obj)
             else:
                 encoded = getattr(obj, sfield.field_name)
-            if encoded is None:
-                if self._omit_none:
-                    continue
-            elif sfield.encoder:
+            if sfield.encoder:
                 encoded = sfield.encoder.dump(encoded)
             data[sfield.dict_key] = encoded
         return data
@@ -496,10 +490,7 @@ cdef class Serializer(object):
             if sfield.dict_key not in data_keys:
                 continue
             decoded = get_data(sfield.dict_key)
-            if decoded is None:
-                if self._omit_none:
-                    continue
-            elif sfield.encoder:
+            if sfield.encoder:
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
         obj = self._dataclass.type_(**decoded_data)
@@ -507,10 +498,7 @@ cdef class Serializer(object):
             if sfield.dict_key not in data_keys:
                 continue
             decoded = get_data(sfield.dict_key)
-            if decoded is None:
-                if self._omit_none:
-                    continue
-            elif sfield.encoder:
+            if sfield.encoder:
                 decoded = sfield.encoder.load(decoded)
             setattr(obj, sfield.field_name, decoded)
         return obj
@@ -602,7 +590,6 @@ cdef class Serializer(object):
                 params.type_,
                 params.arguments,
                 self._many,
-                self._omit_none,
                 tuple(hints.only),
                 tuple(hints.exclude)
             ))
@@ -611,7 +598,6 @@ cdef class Serializer(object):
         else:
             serializer = Serializer(
                 field_type,
-                omit_none=self._omit_none,
                 type_encoders=hints.type_encoders or self._type_encoders,
                 only=hints.only,
                 exclude=hints.exclude,
