@@ -476,7 +476,7 @@ cdef class Serializer(object):
                 encoded = sfield.getter(obj)
             else:
                 encoded = getattr(obj, sfield.field_name)
-            if sfield.encoder:
+            if sfield.encoder and encoded is not None:
                 encoded = sfield.encoder.dump(encoded)
             data[sfield.dict_key] = encoded
         return data
@@ -490,7 +490,7 @@ cdef class Serializer(object):
             if sfield.dict_key not in data_keys:
                 continue
             decoded = get_data(sfield.dict_key)
-            if sfield.encoder:
+            if sfield.encoder and decoded is not None:
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
         obj = self._dataclass.type_(**decoded_data)

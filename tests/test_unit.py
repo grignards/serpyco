@@ -4,6 +4,7 @@ import dataclasses
 import datetime
 import enum
 import json
+import re
 import typing
 import uuid
 from unittest import mock
@@ -180,8 +181,10 @@ def test_unit__json_schema__ok__nominal_case() -> None:
     serializer = serpyco.Serializer(Types)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Types",
         "definitions": {
             "test_unit.Simple": {
+                "comment": "test_unit.Simple",
                 "description": "Basic class.",
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
@@ -240,6 +243,7 @@ def test_unit__json_schema__ok__with_many() -> None:
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
             "test_unit.Simple": {
+                "comment": "test_unit.Simple",
                 "description": "Basic class.",
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
@@ -247,6 +251,7 @@ def test_unit__json_schema__ok__with_many() -> None:
             }
         },
         "items": {
+            "comment": "test_unit.Types",
             "description": "Testing class for supported serializer types.",
             "properties": {
                 "boolean": {"type": "boolean"},
@@ -302,8 +307,10 @@ def test_unit__json_schema__ok__cycle() -> None:
     builder = serpyco.SchemaBuilder(First)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.First",
         "definitions": {
             "test_unit.Second": {
+                "comment": "test_unit.Second",
                 "description": "Cycle test class",
                 "properties": {"first": {"$ref": "#"}},
                 "required": ["first"],
@@ -356,6 +363,7 @@ def test_unit__union__ok__nominal_case() -> None:
 
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithUnion",
         "definitions": {},
         "description": "Union test class",
         "properties": {"foo": {"anyOf": [{"type": "string"}, {"type": "integer"}]}},
@@ -382,6 +390,7 @@ def test_unit__tuple__ok__nominal_case() -> None:
     serializer = serpyco.Serializer(WithTuple)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithTuple",
         "definitions": {},
         "description": "Tuple test class",
         "properties": {
@@ -408,6 +417,7 @@ def test_unit__uniform_tuple__ok__nominal_case() -> None:
     serializer = serpyco.Serializer(WithTuple)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithTuple",
         "definitions": {},
         "description": "Tuple test class",
         "properties": {"tuple_": {"type": "array", "items": {"type": "string"}}},
@@ -460,9 +470,11 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
 
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithStringField",
         "description": "String field test class",
         "definitions": {
             "test_unit.Nested": {
+                "comment": "test_unit.Nested",
                 "description": "Nested",
                 "properties": {"name": {"type": "string", "format": "date-time"}},
                 "required": ["name"],
@@ -499,6 +511,7 @@ def test_unit__number_field__ok__nominal_case() -> None:
 
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithNumberField",
         "definitions": {},
         "description": "Number field test class",
         "properties": {"foo": {"type": "integer", "minimum": 0, "maximum": 12}},
@@ -534,6 +547,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
     assert {"name": "foo"} == serializer.dump(Simple(name="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Simple",
         "description": "Basic class.",
         "definitions": {},
         "properties": {"name": {}},
@@ -545,6 +559,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
     assert {"name": "bar"} == second.dump(Simple(name="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Simple",
         "description": "Basic class.",
         "definitions": {},
         "properties": {"name": {"type": "string"}},
@@ -565,9 +580,11 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
     )
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Nest",
         "description": "Nest",
         "definitions": {
             "test_unit.Simple": {
+                "comment": "test_unit.Simple",
                 "description": "Basic class.",
                 "properties": {"name": {}},
                 "required": ["name"],
@@ -598,6 +615,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
     assert {"name": "foo"} == serializer.dump(Simple(name="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Simple",
         "description": "Basic class.",
         "definitions": {},
         "properties": {"name": {}},
@@ -609,6 +627,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
     assert {"name": "foo"} == second.dump(Simple(name="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Simple",
         "description": "Basic class.",
         "definitions": {},
         "properties": {"name": {}},
@@ -622,6 +641,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
     assert {"name": "bar"} == third.dump(Simple(name="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Simple",
         "description": "Basic class.",
         "definitions": {},
         "properties": {"name": {"type": "string"}},
@@ -641,6 +661,7 @@ def test_unit__ignore__ok__nominal_case():
     assert {} == serializer.dump(Ignore(foo="bar"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Ignore",
         "description": "Ignore test class",
         "definitions": {},
         "properties": {},
@@ -660,6 +681,7 @@ def test_unit__only__ok__nominal_case():
     assert {"foo": "bar"} == serializer.dump(Only(foo="bar", bar="foo"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Only",
         "description": "Only test class",
         "definitions": {},
         "properties": {"foo": {"type": "string"}},
@@ -680,6 +702,7 @@ def test_unit__field_description_and_examples__ok__nominal_case():
     serializer = serpyco.Serializer(Desc)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Desc",
         "definitions": {},
         "description": "Description test class",
         "properties": {
@@ -706,6 +729,7 @@ def test_unit__field_default__ok__nominal_case():
     serializer = serpyco.Serializer(Desc)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Desc",
         "definitions": {},
         "description": "Description test class",
         "properties": {
@@ -772,6 +796,7 @@ def test_unit__exclude__ok__nominal_case():
     assert {"bar": "foo"} == serializer.dump(Exclude(foo="bar", bar="foo"))
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Exclude",
         "description": "Exclude test class",
         "definitions": {},
         "properties": {"bar": {"type": "string"}},
@@ -801,16 +826,19 @@ def test_unit__nested_field__ok__nominal_case():
     )
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Parent",
         "description": "Parent test class",
         "definitions": {
             "test_unit.Nested_exclude_foo": {
                 "type": "object",
+                "comment": "test_unit.Nested",
                 "description": "Nested test class",
                 "properties": {"bar": {"type": "string"}},
                 "required": ["bar"],
             },
             "test_unit.Nested_only_foo": {
                 "type": "object",
+                "comment": "test_unit.Nested",
                 "description": "Nested test class",
                 "properties": {"foo": {"type": "string"}},
                 "required": ["foo"],
@@ -877,7 +905,8 @@ def test_unit__rapidjson_validator__err_message():
         {"type": "object", "properties": {"name": {"type": "string"}}}
     )
     with pytest.raises(
-        serpyco.ValidationError, match=r'data\["name"\]: has type int, expected string'
+        serpyco.ValidationError,
+        match=r'value "42" at path "#/name" has type "int", expected "string"',
     ):
         val.validate({"name": 42})
 
@@ -919,8 +948,10 @@ def test_unit__custom_definition_name__ok__nominal_case():
 
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Class",
         "definitions": {
             "Custom": {
+                "comment": "test_unit.Nested",
                 "description": "Nested",
                 "properties": {"value": {"type": "integer"}},
                 "required": ["value"],
@@ -967,8 +998,10 @@ def test_unit__schema__ok__with_default_dataclass():
     serializer = serpyco.Serializer(Class)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Class",
         "definitions": {
             "test_unit.Nested": {
+                "comment": "test_unit.Nested",
                 "description": "Nested",
                 "properties": {"name": {"default": "Hello", "type": "string"}},
                 "type": "object",
@@ -996,6 +1029,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
     serializer = serpyco.Serializer(Gen[int])
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Gen",
         "definitions": {},
         "description": "Generic.",
         "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
@@ -1010,9 +1044,11 @@ def test_unit__generic_dataclass__ok__nominal_case():
 
     serializer = serpyco.Serializer(WithGen)
     assert {
+        "comment": "test_unit.WithGen",
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
             "test_unit.Gen[int]": {
+                "comment": "test_unit.Gen",
                 "description": "Generic.",
                 "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
                 "required": ["foo", "bar"],
@@ -1042,6 +1078,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
     serializer = serpyco.Serializer(SList[int])
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.SList",
         "definitions": {},
         "description": "List.",
         "properties": {
@@ -1064,6 +1101,7 @@ def test_unit__schema__ok__none_default():
     serializer = serpyco.Serializer(Def)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.Def",
         "definitions": {},
         "description": "Def.",
         "properties": {
@@ -1114,6 +1152,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
 
     assert serializer.json_schema() == {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.OptionalCustom",
         "definitions": {},
         "description": "OptionalCustom.",
         "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
@@ -1149,6 +1188,7 @@ def test_unit__schema__ok__allowed_values():
 
     assert serializer.json_schema() == {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithAllowedValues",
         "definitions": {},
         "description": "WithAllowedValues.",
         "properties": {"foo": {"type": "integer", "enum": [1, 2, 3]}},
@@ -1175,6 +1215,7 @@ def test_unit__schema__ok__allowed_values_with_enum():
 
     assert serializer.json_schema() == {
         "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.WithAllowedValues",
         "definitions": {},
         "description": "WithAllowedValues.",
         "properties": {
@@ -1237,15 +1278,18 @@ def test_unit__optional__ok__with_validator():
 def test_unit__optional__err__validation_error_message():
     @dataclasses.dataclass
     class Opt:
-        foo: typing.Optional[str] = serpyco.string_field(pattern="[A-Z]*")
+        foo: typing.Optional[str] = serpyco.string_field(min_length=5)
 
     serializer = serpyco.Serializer(Opt)
 
     with pytest.raises(
         serpyco.ValidationError,
-        match=r'data\["foo"\]: does not validate for any Union parameters.'
-        r" Details:\\n - string does not match pattern, "
-        r'got "bar", expected "\[A-Z\]\*"\\n - has type str, expected nul.',
+        match=re.escape(
+            r'value "bar" at path "#/foo" must match at least one of the '
+            r"following criteria:\n"
+            r"  - must have its length >= 5 but length is 3\n"
+            r"  - must be None"
+        ),
     ):
         serializer.load({"foo": "bar"})
 
@@ -1276,8 +1320,10 @@ def test_unit__validation__ok__several_errors():
     serializer = serpyco.Serializer(Foo)
     with pytest.raises(
         serpyco.ValidationError,
-        match=r'data\["bar"\]: has type int, expected string.\\n'
-        r'data\["foo"\]: has type str, expected integer.',
+        match=re.escape(
+            r'- value "12" at path "#/bar" has type "int", expected "string"\n'
+            r'- value "hello" at path "#/foo" has type "str", expected "integer"'
+        ),
     ):
         serializer.load({"bar": 12, "foo": "hello"})
 
@@ -1303,8 +1349,11 @@ def test_unit__validation_error_message__err__optional_sub_dataclass():
 
     with pytest.raises(
         serpyco.ValidationError,
-        match=r'data\["foo"\]: does not validate for any Union parameters. Details:\\n'
-        r' - is missing required properties "bar"\\n'
-        r" - has type dict, expected null.",
+        match=re.escape(
+            r'- value "{}" at path "#/foo" must match at least one of the '
+            r"following criteria:\n"
+            r'  - properties "bar" must be defined\n'
+            r"  - must be None"
+        ),
     ):
         serpyco.Serializer(Bar).load({"hello": 42, "foo": {}})

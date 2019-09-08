@@ -4,7 +4,7 @@ import enum
 import typing
 
 from serpyco.util import FieldValidator
-from serpyco.encoder import FieldEncoder
+from serpyco.encoder import FieldEncoder  # type: ignore
 
 _metadata_name = "serpyco"
 
@@ -58,7 +58,7 @@ def field(
     examples: typing.Optional[typing.List[str]] = None,
     allowed_values: typing.Optional[typing.List[typing.Any]] = None,
     **kwargs: typing.Any,
-):
+) -> typing.Any:
     """
     Convenience function to setup Serializer hints on dataclass fields.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
@@ -124,7 +124,7 @@ def string_field(
     min_length: typing.Optional[int] = None,
     max_length: typing.Optional[int] = None,
     **kwargs: typing.Any,
-):
+) -> typing.Any:
     """
     Convenience function to setup Serializer hints for a str dataclass field.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
@@ -181,7 +181,7 @@ def number_field(
     minimum: typing.Optional[int] = None,
     maximum: typing.Optional[int] = None,
     **kwargs: typing.Any,
-):  # type:ignore
+) -> typing.Any:
     """
     Convenience function to setup Serializer hints for a number (int/float)
     dataclass field.
@@ -230,7 +230,7 @@ def nested_field(
     description: typing.Optional[str] = None,
     examples: typing.Optional[typing.List[str]] = None,
     **kwargs: typing.Any,
-):  # type:ignore
+) -> typing.Any:
     """
     Convenience function to setup Serializer hints on nested dataclass fields.
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
