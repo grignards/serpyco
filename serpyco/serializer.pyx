@@ -121,6 +121,7 @@ cdef class Serializer(object):
         type_encoders: typing.Dict[type, FieldEncoder] = None,
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
+        strict: bool = False,
         _parent_serializers: typing.List["Serializer"] = None
     ):
         """
@@ -132,6 +133,10 @@ cdef class Serializer(object):
         :param type_encoders: encoders to use for given types
         :param only: list of fields to serialize.
             If None, all fields are serialized
+        :param exclude: list of fields to exclude from serialization.
+            If None, all fields are serialized
+        :param strict: if true, unknown properties of an object will make the
+            validation fail
         """
         cdef Serializer parent
         self._dataclass = _DataClassParams(dataclass)
@@ -192,7 +197,8 @@ cdef class Serializer(object):
             many=many,
             only=only,
             exclude=exclude,
-            type_encoders={**self._global_types, **self._type_encoders}
+            type_encoders={**self._global_types, **self._type_encoders},
+            strict=strict,
         )
         self._validator = RapidJsonValidator(
             builder.json_schema(),

@@ -188,6 +188,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
                 "description": "Basic class.",
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
+                "additionalProperties": True,
                 "type": "object",
             }
         },
@@ -233,6 +234,7 @@ def test_unit__json_schema__ok__nominal_case() -> None:
             "mapping",
             "datetime_",
         ],
+        "additionalProperties": True,
         "type": "object",
     } == serializer.json_schema()
 
@@ -248,6 +250,7 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "properties": {"name": {"type": "string"}},
                 "required": ["name"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "items": {
@@ -297,6 +300,7 @@ def test_unit__json_schema__ok__with_many() -> None:
                 "mapping",
                 "datetime_",
             ],
+            "additionalProperties": True,
             "type": "object",
         },
         "type": "array",
@@ -315,11 +319,13 @@ def test_unit__json_schema__ok__cycle() -> None:
                 "properties": {"first": {"$ref": "#"}},
                 "required": ["first"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "description": "Cycle test class",
         "properties": {"second": {"$ref": "#/definitions/test_unit.Second"}},
         "required": ["second"],
+        "additionalProperties": True,
         "type": "object",
     } == builder.json_schema()
     nested = builder.nested_builders()
@@ -369,6 +375,7 @@ def test_unit__union__ok__nominal_case() -> None:
         "properties": {"foo": {"anyOf": [{"type": "string"}, {"type": "integer"}]}},
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     assert {"foo": 42} == serializer.dump(WithUnion(foo=42), validate=True)
@@ -402,6 +409,7 @@ def test_unit__tuple__ok__nominal_case() -> None:
             }
         },
         "required": ["tuple_"],
+        "additionalProperties": True,
         "type": "object",
     } == serializer.json_schema()
     assert WithTuple(tuple_=("foo", 1)) == serializer.load({"tuple_": ["foo", 1]})
@@ -423,6 +431,7 @@ def test_unit__uniform_tuple__ok__nominal_case() -> None:
         "properties": {"tuple_": {"type": "array", "items": {"type": "string"}}},
         "required": ["tuple_"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
     assert WithTuple(tuple_=("foo", "bar")) == serializer.load(
         {"tuple_": ["foo", "bar"]}
@@ -479,6 +488,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
                 "properties": {"name": {"type": "string", "format": "date-time"}},
                 "required": ["name"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "properties": {
@@ -493,6 +503,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
         },
         "required": ["foo", "nested"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     assert serializer.load({"foo": "Foo@foo.bar", "nested": {"name": "foo"}})
@@ -517,6 +528,7 @@ def test_unit__number_field__ok__nominal_case() -> None:
         "properties": {"foo": {"type": "integer", "minimum": 0, "maximum": 12}},
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     assert serializer.load({"foo": 5})
@@ -553,6 +565,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {}},
         "required": ["name"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     second = serpyco.Serializer(Simple)
@@ -565,6 +578,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {"type": "string"}},
         "required": ["name"],
         "type": "object",
+        "additionalProperties": True,
     } == second.json_schema()
 
     @dataclasses.dataclass
@@ -589,6 +603,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
                 "properties": {"name": {}},
                 "required": ["name"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "properties": {
@@ -597,6 +612,7 @@ def test_unit__type_encoders__ok__nominal_case() -> None:
         },
         "required": ["name", "nested"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -621,6 +637,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {}},
         "required": ["name"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     second = serpyco.Serializer(Simple)
@@ -633,6 +650,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {}},
         "required": ["name"],
         "type": "object",
+        "additionalProperties": True,
     } == second.json_schema()
 
     serpyco.Serializer.unregister_global_type(str)
@@ -647,6 +665,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
         "properties": {"name": {"type": "string"}},
         "required": ["name"],
         "type": "object",
+        "additionalProperties": True,
     } == third.json_schema()
 
 
@@ -666,6 +685,8 @@ def test_unit__ignore__ok__nominal_case():
         "definitions": {},
         "properties": {},
         "type": "object",
+        "additionalProperties": True,
+        "required": [],
     } == serializer.json_schema()
 
 
@@ -687,6 +708,7 @@ def test_unit__only__ok__nominal_case():
         "properties": {"foo": {"type": "string"}},
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -714,6 +736,7 @@ def test_unit__field_description_and_examples__ok__nominal_case():
         },
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -743,6 +766,8 @@ def test_unit__field_default__ok__nominal_case():
             },
         },
         "type": "object",
+        "additionalProperties": True,
+        "required": [],
     } == serializer.json_schema()
 
 
@@ -802,6 +827,7 @@ def test_unit__exclude__ok__nominal_case():
         "properties": {"bar": {"type": "string"}},
         "required": ["bar"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -831,6 +857,7 @@ def test_unit__nested_field__ok__nominal_case():
         "definitions": {
             "test_unit.Nested_exclude_foo": {
                 "type": "object",
+                "additionalProperties": True,
                 "comment": "test_unit.Nested",
                 "description": "Nested test class",
                 "properties": {"bar": {"type": "string"}},
@@ -838,6 +865,7 @@ def test_unit__nested_field__ok__nominal_case():
             },
             "test_unit.Nested_only_foo": {
                 "type": "object",
+                "additionalProperties": True,
                 "comment": "test_unit.Nested",
                 "description": "Nested test class",
                 "properties": {"foo": {"type": "string"}},
@@ -850,6 +878,7 @@ def test_unit__nested_field__ok__nominal_case():
         },
         "required": ["first", "second"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -956,12 +985,14 @@ def test_unit__custom_definition_name__ok__nominal_case():
                 "properties": {"value": {"type": "integer"}},
                 "required": ["value"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "description": "Class",
         "properties": {"nested": {"$ref": "#/definitions/Custom"}},
         "required": ["nested"],
         "type": "object",
+        "additionalProperties": True,
     } == builder.json_schema()
     get_definition_name.assert_called_with(Nested, (), [], [])
 
@@ -1005,6 +1036,8 @@ def test_unit__schema__ok__with_default_dataclass():
                 "description": "Nested",
                 "properties": {"name": {"default": "Hello", "type": "string"}},
                 "type": "object",
+                "additionalProperties": True,
+                "required": [],
             }
         },
         "description": "Class",
@@ -1014,6 +1047,7 @@ def test_unit__schema__ok__with_default_dataclass():
         },
         "required": ["one"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -1035,6 +1069,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
         "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
         "required": ["foo", "bar"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
 
     @dataclasses.dataclass
@@ -1053,12 +1088,14 @@ def test_unit__generic_dataclass__ok__nominal_case():
                 "properties": {"bar": {"type": "integer"}, "foo": {"type": "string"}},
                 "required": ["foo", "bar"],
                 "type": "object",
+                "additionalProperties": True,
             }
         },
         "description": "With a generic.",
         "properties": {"nested": {"$ref": "#/definitions/test_unit.Gen[int]"}},
         "required": ["nested"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
     assert WithGen(nested=Gen(foo="bar", bar=12)) == serializer.load(
         {"nested": {"foo": "bar", "bar": 12}}
@@ -1087,6 +1124,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
         },
         "required": ["items", "item_nb"],
         "type": "object",
+        "additionalProperties": True,
     } == serializer.json_schema()
     assert {"items": [0, 1], "item_nb": 2} == serializer.dump(SList([0, 1]))
 
@@ -1108,6 +1146,8 @@ def test_unit__schema__ok__none_default():
             "foo": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None}
         },
         "type": "object",
+        "required": [],
+        "additionalProperties": True,
     } == serializer.json_schema()
 
 
@@ -1157,6 +1197,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         "description": "OptionalCustom.",
         "properties": {"name": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
         "type": "object",
+        "additionalProperties": True,
         "required": ["name"],
     }
 
@@ -1194,6 +1235,7 @@ def test_unit__schema__ok__allowed_values():
         "properties": {"foo": {"type": "integer", "enum": [1, 2, 3]}},
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     }
 
 
@@ -1223,6 +1265,7 @@ def test_unit__schema__ok__allowed_values_with_enum():
         },
         "required": ["foo"],
         "type": "object",
+        "additionalProperties": True,
     }
 
 
@@ -1357,3 +1400,18 @@ def test_unit__validation_error_message__err__optional_sub_dataclass():
         ),
     ):
         serpyco.Serializer(Bar).load({"hello": 42, "foo": {}})
+
+
+def test_unit__strict_validation__err__additional_property():
+    @dataclasses.dataclass
+    class Foo:
+        bar: str
+
+    serializer = serpyco.Serializer(Foo, strict=True)
+    with pytest.raises(
+        serpyco.ValidationError,
+        match=re.escape(r'properties "hello" cannot be defined'),
+    ):
+        serializer.load({"hello": 42, "bar": "foo"})
+
+    assert serializer.load({"bar": "foo"}) == Foo("foo")

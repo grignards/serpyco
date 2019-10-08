@@ -48,6 +48,8 @@ This is done by the `validate=True` parameter of
     >>> }, validate=True)
     ValidationError: ('data["points"][0]["x"]: has type str, expected number.')
 
+Additional properties in loaded data are allowed by default, this can be changed 
+using the `strict=True` parameter of :func:`serpyco.Serializer.__init__`.
 
 Customize data validation
 -------------------------

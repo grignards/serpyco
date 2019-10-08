@@ -200,6 +200,13 @@ class RapidJsonValidator(AbstractValidator):
             start_line = " " * indent + "- "
             msg_string = start_line + f"\n{start_line}".join(messages)
             msg = f"must match at least one of the following criteria:\n{msg_string}"
+        elif "additionalProperties" == schema_part_name:
+            schema_properties = set(schema.get("properties", {}).keys())
+            data_properties = set(data.keys())
+            props = list(data_properties - schema_properties)
+            props = [f'"{s}"' for s in sorted(props)]
+            additional = ", ".join(props)
+            msg = f"properties {additional} cannot be defined"
         else:
             msg = f"validation error {exc}"
         return (d, data_path, msg)

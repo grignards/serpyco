@@ -66,6 +66,7 @@ class SchemaBuilder(object):
         exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
         get_definition_name: GetDefinitionCallable = default_get_definition_name,
+        strict: bool = False,
     ) -> None:
         """
         Creates a SchemaBuilder for the given dataclass.
@@ -83,6 +84,8 @@ class SchemaBuilder(object):
               - the `only` list defined for the nested dataclass
               - the `exclude` list defined for the nested dataclass
             It must return a string.
+        :param strict: if true, unknown properties of an object will make the
+            validation fail
         """
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
@@ -94,6 +97,7 @@ class SchemaBuilder(object):
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: JsonDict = {}
         self._get_definition_name = get_definition_name
+        self._strict = strict
 
         for f in dataclasses.fields(self._dataclass.type_):
             if not f.metadata:
@@ -281,9 +285,9 @@ class SchemaBuilder(object):
             "type": "object",
             "properties": properties,
             "comment": _get_qualified_type_name(self._dataclass.type_),
+            "additionalProperties": not self._strict,
+            "required": required,
         }
-        if required:
-            schema["required"] = required
         if self._dataclass.type_.__doc__:
             schema["description"] = self._dataclass.type_.__doc__.strip()
 
