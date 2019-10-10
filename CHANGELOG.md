@@ -1,5 +1,12 @@
 # Serpyco changelog
 
+## v0.18.0
+
+- feat: strict mode for object validation
+- refactor: better validation messages
+- **refactor**: remove omit_none option of Serializer, `None` values are now always dumped
+- feat: custom type encoders through nested_field()
+
 ## v0.17.4
 
 - fix: ensure order of missing fields in error message
@@ -7,7 +14,7 @@
 
 ## v0.17.3
 
-- 
+- fix: do not add a timezone to naive datetime objects
 
 ## v0.17.2
 
