@@ -39,6 +39,12 @@ tests-3.7:
   script:
     - python setup.py test
 
+tests-3.8:
+  stage: test
+  image: python:3.8
+  script:
+    - python setup.py test
+
 pages:
   stage: doc
   script:

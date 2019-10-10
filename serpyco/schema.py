@@ -13,6 +13,7 @@ from serpyco.util import (
     FieldValidator,
     JsonDict,
     _DataClassParams,
+    _get_qualified_type_name,
     _is_generic,
     _is_optional,
     _is_union,
@@ -34,9 +35,7 @@ def default_get_definition_name(
     Ensures that a definition name is unique even for the same type
     with different arguments or only/exclude parameters
     """
-    name = type_.__name__
-    if type_.__module__ is not None:
-        name = f"{type_.__module__}.{name}"
+    name = _get_qualified_type_name(type_)
     if arguments:
         name += "[" + ",".join([arg.__name__ for arg in arguments]) + "]"
     if only:
@@ -67,6 +66,7 @@ class SchemaBuilder(object):
         exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
         get_definition_name: GetDefinitionCallable = default_get_definition_name,
+        strict: bool = False,
     ) -> None:
         """
         Creates a SchemaBuilder for the given dataclass.
@@ -84,6 +84,8 @@ class SchemaBuilder(object):
               - the `only` list defined for the nested dataclass
               - the `exclude` list defined for the nested dataclass
             It must return a string.
+        :param strict: if true, unknown properties of an object will make the
+            validation fail
         """
         self._dataclass = _DataClassParams(dataclass)
         self._many = many
@@ -95,6 +97,7 @@ class SchemaBuilder(object):
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: JsonDict = {}
         self._get_definition_name = get_definition_name
+        self._strict = strict
 
         for f in dataclasses.fields(self._dataclass.type_):
             if not f.metadata:
@@ -247,7 +250,7 @@ class SchemaBuilder(object):
                     else:
                         sub = SchemaBuilder(
                             item_type,
-                            type_encoders=self._types,
+                            type_encoders=vfield.hints.type_encoders or self._types,
                             only=vfield.hints.only,
                             exclude=vfield.hints.exclude,
                             get_definition_name=self._get_definition_name,
@@ -278,9 +281,13 @@ class SchemaBuilder(object):
                     (vfield.field.name, vfield.hints.validator)
                 )
 
-        schema = {"type": "object", "properties": properties}
-        if required:
-            schema["required"] = required
+        schema = {
+            "type": "object",
+            "properties": properties,
+            "comment": _get_qualified_type_name(self._dataclass.type_),
+            "additionalProperties": not self._strict,
+            "required": required,
+        }
         if self._dataclass.type_.__doc__:
             schema["description"] = self._dataclass.type_.__doc__.strip()
 

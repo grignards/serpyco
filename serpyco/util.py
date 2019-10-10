@@ -71,7 +71,10 @@ class _DataClassParams(object):
         return field_type
 
 
-def _get_values(components: typing.List[str], data: typing.Any) -> typing.Any:
+def _get_values(
+    components: typing.List[str],
+    data: typing.Union[JsonDict, typing.Sequence[JsonDict]],
+) -> typing.Any:
     if not components:
         yield data
         return
@@ -84,3 +87,10 @@ def _get_values(components: typing.List[str], data: typing.Any) -> typing.Any:
                 yield from _get_values(components[1:], d)
         else:
             yield from _get_values(components[1:], data[int(component)])
+
+
+def _get_qualified_type_name(type_: type) -> str:
+    name = type_.__name__
+    if type_.__module__ is not None:
+        name = f"{type_.__module__}.{name}"
+    return name
