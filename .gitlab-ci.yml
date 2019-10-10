@@ -41,7 +41,7 @@ tests-3.7:
 
 tests-3.8:
   stage: test
-  image: python:3.8
+  image: python:3.8-rc
   script:
     - python setup.py test
 
