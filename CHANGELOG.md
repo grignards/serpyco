@@ -11,6 +11,7 @@
 
 - fix: ensure order of missing fields in error message
 - fix: ensure definitions name are unique by using the module name of the dataclass as a prefix
+- refactor: do not use `default_factory` to document the default value of a field. Reasoning: it can't be guaranteed that it always returns the same value.
 
 ## v0.17.3
 
