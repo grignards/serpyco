@@ -711,8 +711,8 @@ cdef class IterableFieldEncoder(FieldEncoder):
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            return self._iterable_type([self._item_encoder.dump(v) for v in value])
-        return self._iterable_type(value)
+            return [self._item_encoder.dump(v) for v in value]
+        return list(value)
 
     def json_schema(self) -> JsonDict:
         return None
