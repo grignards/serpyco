@@ -1415,3 +1415,21 @@ def test_unit__strict_validation__err__additional_property():
         serializer.load({"hello": 42, "bar": "foo"})
 
     assert serializer.load({"bar": "foo"}) == Foo("foo")
+
+
+def test_unit__dump_load__object_set():
+    @dataclasses.dataclass
+    class Bar:
+        baz: str
+
+        def __hash__(self):
+            return hash(self.baz)
+
+    @dataclasses.dataclass
+    class Foo:
+        bar: typing.Set[Bar]
+
+    serializer = serpyco.Serializer(Foo)
+    foo = Foo({Bar("baz")})
+    assert serializer.dump(foo) == {"bar": [{"baz": "baz"}]}
+    assert serializer.load({"bar": [{"baz": "baz"}]}) == foo
