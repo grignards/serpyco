@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v0.18.1
+
+- fix: dump sets as list since sets are not JSON serializable + didn't work with a set of hashable objects
+
 ## v0.18.0
 
 - feat: strict mode for object validation
