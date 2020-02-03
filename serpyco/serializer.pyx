@@ -252,7 +252,7 @@ cdef class Serializer(object):
         cdef SField sfield
         cdef Serializer ser
         part = obj_path[0]
-        for sfield in self._fields:
+        for sfield in self._fields + self._post_init_fields:
             if sfield.field_name==part:
                 break
         else:
@@ -273,7 +273,7 @@ cdef class Serializer(object):
         cdef SField sfield
         cdef Serializer ser
         part = dict_path[0]
-        for sfield in self._fields:
+        for sfield in self._fields + self._post_init_fields:
             if sfield.dict_key==part:
                 break
         else:
@@ -492,6 +492,8 @@ cdef class Serializer(object):
         cdef SField sfield
         get_data = data.get
         data_keys = set(data.keys())
+        # Decode fields that are in the constructor's
+        # signature
         for sfield in self._fields:
             if sfield.dict_key not in data_keys:
                 continue
@@ -500,11 +502,12 @@ cdef class Serializer(object):
                 decoded = sfield.encoder.load(decoded)
             decoded_data[sfield.field_name] = decoded
         obj = self._dataclass.type_(**decoded_data)
+        # Now decode and set fields available after init
         for sfield in self._post_init_fields:
             if sfield.dict_key not in data_keys:
                 continue
             decoded = get_data(sfield.dict_key)
-            if sfield.encoder:
+            if sfield.encoder and decoded is not None:
                 decoded = sfield.encoder.load(decoded)
             setattr(obj, sfield.field_name, decoded)
         return obj

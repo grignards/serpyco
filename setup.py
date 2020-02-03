@@ -27,7 +27,6 @@ setup(
         "wheel",
     ],
     install_requires=requires,
-    tests_require=["pytest", "pytest-benchmark", "dataslots"],
     license="MIT",
     classifiers=[
         "Development Status :: 4 - Beta",
