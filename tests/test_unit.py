@@ -806,7 +806,11 @@ def test_unit__decorators__ok__nominal_case():
 
     assert {"bar": 5} == serializer.dump(Decorated(foo="hello", bar=3))
 
+    assert '{"bar":5}' == serializer.dump_json(Decorated(foo="hello", bar=3))
+
     assert Decorated(foo="default", bar=1) == serializer.load({"bar": 3})
+
+    assert Decorated(foo="default", bar=1) == serializer.load_json('{"bar":3}')
 
 
 def test_unit__exclude__ok__nominal_case():
@@ -1170,9 +1174,20 @@ def test_unit__union_field_encoder__ok__nominal_case():
 
     dummy.load.reset_mock()
     with pytest.raises(serpyco.ValidationError):
-        print(encoder.load("hello"))
+        encoder.load("hello")
         dummy.load.assert_called_once_with("hello")
         dummy_raise_at_load.load.assert_called_once_with("hello")
+
+
+def test_unit__union_field_encoder__err__validation_error():
+
+    dummy_raise_at_load = mock.Mock()
+    dummy_raise_at_load.load.side_effect = Exception
+    encoder = serpyco.serializer.UnionFieldEncoder(
+        [(int, dummy_raise_at_load), (str, dummy_raise_at_load)]
+    )
+    with pytest.raises(serpyco.ValidationError):
+        encoder.load("hello")
 
 
 def test_unit__optional__custom_encoder__ok__nominal_case():
@@ -1433,3 +1448,14 @@ def test_unit__dump_load__object_set():
     foo = Foo({Bar("baz")})
     assert serializer.dump(foo) == {"bar": [{"baz": "baz"}]}
     assert serializer.load({"bar": [{"baz": "baz"}]}) == foo
+
+
+def test_unit__load__err__missing_parameter():
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+        value: int
+
+    serializer = serpyco.Serializer(Foo)
+    with pytest.raises(TypeError):
+        serializer.load({"name": "hello"}, validate=False)

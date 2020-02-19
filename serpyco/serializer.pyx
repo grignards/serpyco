@@ -32,24 +32,35 @@ from serpyco.util import (
 )
 from serpyco.validator import RapidJsonValidator
 
+cdef object dataclasses_MISSING = dataclasses.MISSING
+cdef object new_object = object.__new__
 
 cdef class SField:
     cdef str field_name
     cdef str dict_key
     cdef FieldEncoder encoder
     cdef object getter
+    cdef bint init
+    cdef object default
+    cdef object default_factory
 
     def __init__(
         self,
         str field_name,
         str dict_key,
         FieldEncoder encoder,
-        object getter=None
+        object getter,
+        bint init,
+        object default,
+        object default_factory
     ):
         self.field_name = field_name
         self.dict_key = dict_key
         self.encoder = encoder
         self.getter = getter
+        self.init = init
+        self.default = default
+        self.default_factory = default_factory
 
 
 cdef class Caster(object):
@@ -92,8 +103,8 @@ cdef class Serializer(object):
     """
 
     cdef tuple _fields
-    cdef tuple _post_init_fields
-    cdef object _dataclass
+    cdef object _dataclass_params
+    cdef type _dataclass
     cdef bint _many
     cdef object _validator
     cdef list _parent_serializers
@@ -113,7 +124,7 @@ cdef class Serializer(object):
     for f, e in _global_types.items():
         SchemaBuilder.register_global_type(f, e)
 
-    def __init__(
+    def __cinit__(
         self,
         dataclass,
         many: bool = False,
@@ -139,7 +150,8 @@ cdef class Serializer(object):
             validation fail
         """
         cdef Serializer parent
-        self._dataclass = _DataClassParams(dataclass)
+        self._dataclass_params = _DataClassParams(dataclass)
+        self._dataclass = self._dataclass_params.type_
         self._many = many
         self._type_encoders = type_encoders or {}
         self._only = only or []
@@ -147,12 +159,11 @@ cdef class Serializer(object):
         self._parent_serializers = _parent_serializers or []
         self._parent_serializers.append(self)
         fields = []
-        post_init_fields = []
         field_casters = []
 
-        type_hints = typing.get_type_hints(self._dataclass.type_)
+        type_hints = typing.get_type_hints(self._dataclass)
         self._field_encoders = {}
-        for f in dataclasses.fields(self._dataclass.type_):
+        for f in dataclasses.fields(self._dataclass):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
             if (
@@ -164,30 +175,24 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
 
-            field_type = self._dataclass.resolve_type(field_type)
+            field_type = self._dataclass_params.resolve_type(field_type)
 
             encoder = self._get_encoder(field_type, hints)
             if encoder:
                 self._field_encoders[field_type] = encoder
-            if f.init:
-                fields.append(SField(
-                    f.name,
-                    hints.dict_key,
-                    encoder,
-                    hints.getter
-                ))
-            else:
-                post_init_fields.append(SField(
-                    f.name,
-                    hints.dict_key,
-                    encoder,
-                    hints.getter
-                ))
+            fields.append(SField(
+                f.name,
+                hints.dict_key,
+                encoder,
+                hints.getter,
+                f.init,
+                f.default,
+                f.default_factory
+            ))
 
             if hints.cast_on_load:
                 field_casters.append(Caster(hints.dict_key, field_type))
         self._fields = tuple(fields)
-        self._post_init_fields = tuple(post_init_fields)
 
         field_encoders = {}
         for parent in self._parent_serializers:
@@ -210,8 +215,8 @@ cdef class Serializer(object):
         self._pre_dumpers = []
         self._post_loaders = []
         self._pre_loaders = []
-        for attr_name in dir(self._dataclass.type_):
-            attr = getattr(self._dataclass.type_, attr_name)
+        for attr_name in dir(self._dataclass):
+            attr = getattr(self._dataclass, attr_name)
             try:
                 tag = getattr(attr, _serpyco_tags)
                 if DecoratorType.POST_DUMP==tag:
@@ -230,8 +235,8 @@ cdef class Serializer(object):
 
     def __hash__(self):
         return hash((
-            self._dataclass.type_,
-            self._dataclass.arguments,
+            self._dataclass,
+            self._dataclass_params.arguments,
             self._many,
             tuple(self._only),
             tuple(self._exclude)
@@ -252,11 +257,11 @@ cdef class Serializer(object):
         cdef SField sfield
         cdef Serializer ser
         part = obj_path[0]
-        for sfield in self._fields + self._post_init_fields:
+        for sfield in self._fields:
             if sfield.field_name==part:
                 break
         else:
-            raise KeyError(f"Unknown field {part} in {self._dataclass.type_}")
+            raise KeyError(f"Unknown field {part} in {self._dataclass}")
 
         if 1 == len(obj_path):
             return [sfield.dict_key]
@@ -273,11 +278,11 @@ cdef class Serializer(object):
         cdef SField sfield
         cdef Serializer ser
         part = dict_path[0]
-        for sfield in self._fields + self._post_init_fields:
+        for sfield in self._fields:
             if sfield.dict_key==part:
                 break
         else:
-            raise KeyError(f"Unknown dict key {part} in {self._dataclass.type_}")
+            raise KeyError(f"Unknown dict key {part} in {self._dataclass}")
 
         if 1 == len(dict_path):
             return [sfield.field_name]
@@ -309,7 +314,7 @@ cdef class Serializer(object):
         """
         Returns the dataclass used to construct this serializer.
         """
-        return self._dataclass.type_
+        return self._dataclass
 
     cpdef inline dump(
         self,
@@ -359,6 +364,7 @@ cdef class Serializer(object):
             creating objects
         """
         cdef list datas
+        cdef list objs
         cdef object obj
 
         if self._many:
@@ -461,7 +467,7 @@ cdef class Serializer(object):
                 data = pre_load(data)
 
         if validate:
-            self._validator.validate_json(js)
+            self._validator.validate(data)
             self._validator.validate_user(data, many=self._many)
 
         if self._many:
@@ -477,38 +483,36 @@ cdef class Serializer(object):
     cdef inline dict _dump(self, object obj):
         cdef dict data = {}
         cdef SField sfield
-        for sfield in self._fields + self._post_init_fields:
-            if sfield.getter:
+        cdef object encoded
+        for sfield in self._fields:
+            if sfield.getter is not None:
                 encoded = sfield.getter(obj)
             else:
                 encoded = getattr(obj, sfield.field_name)
-            if sfield.encoder and encoded is not None:
+            if sfield.encoder is not None and encoded is not None:
                 encoded = sfield.encoder.dump(encoded)
             data[sfield.dict_key] = encoded
         return data
 
     cdef inline object _load(self, dict data):
-        cdef dict decoded_data = {}
         cdef SField sfield
-        get_data = data.get
-        data_keys = set(data.keys())
-        # Decode fields that are in the constructor's
-        # signature
+        cdef object decoded
+        obj = new_object(self._dataclass)
         for sfield in self._fields:
-            if sfield.dict_key not in data_keys:
-                continue
-            decoded = get_data(sfield.dict_key)
-            if sfield.encoder and decoded is not None:
-                decoded = sfield.encoder.load(decoded)
-            decoded_data[sfield.field_name] = decoded
-        obj = self._dataclass.type_(**decoded_data)
-        # Now decode and set fields available after init
-        for sfield in self._post_init_fields:
-            if sfield.dict_key not in data_keys:
-                continue
-            decoded = get_data(sfield.dict_key)
-            if sfield.encoder and decoded is not None:
-                decoded = sfield.encoder.load(decoded)
+            try:
+                decoded = data[sfield.dict_key]
+                if sfield.encoder is not None and decoded is not None:
+                    decoded = sfield.encoder.load(decoded)
+            except KeyError:
+                if sfield.default is not dataclasses_MISSING:
+                    decoded = sfield.default
+                elif sfield.default_factory is not dataclasses_MISSING:
+                    decoded = sfield.default_factory()
+                else:
+                    raise TypeError(
+                        "data dictionary is missing "
+                        f"required parameter '{sfield.field_name}' for class '{self._dataclass.__qualname__}'"
+                    )
             setattr(obj, sfield.field_name, decoded)
         return obj
 
@@ -531,7 +535,7 @@ cdef class Serializer(object):
 
     def _get_encoder(self, field_type, hints):
 
-        field_type = self._dataclass.resolve_type(field_type)
+        field_type = self._dataclass_params.resolve_type(field_type)
         args = typing_inspect.get_args(field_type)
 
         if field_type in self._type_encoders:
@@ -619,7 +623,7 @@ cdef class Serializer(object):
 cdef class EnumFieldEncoder(FieldEncoder):
     cdef object _enum_type
 
-    def __init__(self, enum_type):
+    def __cinit__(self, enum_type):
         self._enum_type = enum_type
 
     cpdef inline dump(self, value: typing.Any):
@@ -636,13 +640,16 @@ cdef class EnumFieldEncoder(FieldEncoder):
 cdef class DataClassFieldEncoder(FieldEncoder):
     cdef Serializer _serializer
 
-    def __init__(self, Serializer serializer):
+    def __cinit__(self, Serializer serializer):
         self._serializer = serializer
 
-    cpdef inline load(self, value: typing.Any):
+    cdef set_many(self, bint many):
+        self._serializer._many = many
+
+    cpdef inline load(self, value):
         return self._serializer._load(value)
 
-    cpdef inline dump(self, value: typing.Any):
+    cpdef inline dump(self, value):
         return self._serializer._dump(value)
 
     def json_schema(self) -> JsonDict:
@@ -654,7 +661,7 @@ cdef class FixedTupleFieldEncoder(FieldEncoder):
     cdef tuple _item_encoders
     cdef int _item_encoders_count
 
-    def __init__(self, item_encoders):
+    def __cinit__(self, item_encoders):
         self._item_encoders = tuple(item_encoders)
         self._item_encoders_count = len(self._item_encoders)
 
@@ -702,19 +709,20 @@ cdef class IterableFieldEncoder(FieldEncoder):
         typing.Set: set,
     }
 
-    def __init__(self, item_encoder, sequence_type):
+    def __cinit__(self, item_encoder, sequence_type):
+        cdef DataClassFieldEncoder dataclass_encoder
         self._item_encoder = item_encoder
         origin = typing_inspect.get_origin(sequence_type)
         self._iterable_type = self._iterable_types_mapping.get(origin, origin)
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
-            return self._iterable_type([self._item_encoder.load(v) for v in value])
+            value = [self._item_encoder.load(v) for v in value]
         return self._iterable_type(value)
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            return [self._item_encoder.dump(v) for v in value]
+            value = [self._item_encoder.dump(v) for v in value]
         return list(value)
 
     def json_schema(self) -> JsonDict:
@@ -726,7 +734,7 @@ cdef class DictFieldEncoder(FieldEncoder):
     cdef FieldEncoder _key_encoder
     cdef FieldEncoder _value_encoder
 
-    def __init__(self, key_encoder, value_encoder):
+    def __cinit__(self, key_encoder, value_encoder):
         self._key_encoder = key_encoder
         self._value_encoder = value_encoder
 
@@ -820,7 +828,7 @@ cdef class UnionFieldEncoder(FieldEncoder):
 
     cdef tuple _type_encoders
 
-    def __init__(
+    def __cinit__(
         self,
         type_encoders: typing.List[typing.Tuple[type, FieldEncoder]]
     ):
