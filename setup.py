@@ -9,10 +9,14 @@ requires = [
     "dataclasses;python_version<'3.7'",
 ]
 
+with open("README.rst") as f:
+    readme = f.read()
+
 setup(
     name="serpyco",
     use_scm_version=True,
     description="Fast serialization of dataclasses using Cython",
+    long_description=readme,
     author="Sébastien Grignard",
     author_email="pub@amakaze.org",
     url="https://gitlab.com/sgrignard/serpyco",
