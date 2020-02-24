@@ -8,6 +8,7 @@ class Custom(object):
     firstname: str
     lastname: str
 
+    @staticmethod
     @post_dump
     def make_name(data: dict) -> dict:
         first = data["firstname"]

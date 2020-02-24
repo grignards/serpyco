@@ -5,11 +5,13 @@ Getting started
 Serialize dataclasses instances
 -------------------------------
 
-The classic use for Serpyco is to dump your dataclass objects to builtin Python types. This is done by creating a :class:`serpyco.Serializer` for your dataclass type:
+The classic use for Serpyco is to dump your dataclass objects to
+builtin Python types. This is done by creating a :class:`serpyco.Serializer`
+for your dataclass type:
 
 .. literalinclude:: examples/simple_dump.py
     :language: python
-    
+
 More complex dataclass can be serialized just as easily:
 
 .. literalinclude:: examples/complex_dump.py
@@ -48,8 +50,9 @@ This is done by the `validate=True` parameter of
     >>> }, validate=True)
     ValidationError: ('data["points"][0]["x"]: has type str, expected number.')
 
-Additional properties in loaded data are allowed by default, this can be changed 
-using the `strict=True` parameter of :func:`serpyco.Serializer.__init__`.
+Additional properties in loaded data are allowed by default, this can be
+changed using the `strict=True` parameter of
+:func:`serpyco.Serializer.__init__`.
 
 Customize data validation
 -------------------------
@@ -61,7 +64,8 @@ fine-tuning of the validation.
 String fields
 =============
 
-Tuning the validation of string fields is done using :func:`serpyco.string_field`:
+Tuning the validation of string fields is done using
+:func:`serpyco.string_field`:
 
 .. code-block:: python
 
@@ -70,7 +74,7 @@ Tuning the validation of string fields is done using :func:`serpyco.string_field
 
 
     @dataclass
-    class StringFields(object):
+    class StringFields:
         simple: str
         name: str = string_field(pattern="^[A-Z]")
 
@@ -87,7 +91,8 @@ Tuning the validation of string fields is done using :func:`serpyco.string_field
 Number fields
 =============
 
-For numbers (`int` and `float`), the tuning is done with :func:`serpyco.number_field`:
+For numbers (`int` and `float`), the tuning is done with
+:func:`serpyco.number_field`:
 
 .. code-block:: python
 
@@ -96,7 +101,7 @@ For numbers (`int` and `float`), the tuning is done with :func:`serpyco.number_f
 
 
     @dataclass
-    class NumberFields(object):
+    class NumberFields:
         simple: int
         range: float = number_field(minimum=0, maximum=10)
 
@@ -120,7 +125,7 @@ A field can be specified as optional by typing it with `Optional`:
 
 
     @dataclass
-    class OptionalField(object):
+    class OptionalField:
         name: str
         option: typing.Optional[int] = None
 
@@ -155,7 +160,7 @@ The fields dumped/loaded by a serializer object can be tuned when creating it:
     from serpyco import field, Serializer
 
     @dataclasses.dataclass
-    class Data(object):
+    class Data:
         """Data test class"""
 
         foo: str
@@ -181,7 +186,7 @@ serialization. This is done by using :func:`serpyco.field`:
     from serpyco import field, Serializer
 
     @dataclass
-    class Example(object):
+    class Example:
         name: str = field(dict_key="custom")
 
     serializer = Serializer(Example)
@@ -205,14 +210,14 @@ or exclude some fields by using :func:`serpyco.nested_field`:
     from serpyco import Serializer, nested_field
 
     @dataclass
-    class Nested(object):
+    class Nested:
         """Nested test class"""
 
         foo: str
         bar: str
 
     @dataclass
-    class Parent(object):
+    class Parent:
         """Parent test class"""
 
         first: Nested = serpyco.nested_field(only=["foo"])
@@ -254,11 +259,11 @@ You can register your own field encoders for any type:
     from serpyco import Serializer, FieldEncoder
 
 
-    class Rational(object):
+    class Rational:
         def __init__(self, numerator: int, denominator: int):
             self.numerator = numerator
             self.denominator = denominator
-        
+
         def __repr__(self) -> str:
             return f"Rational({self.numerator}/{self.denominator})"
 
@@ -272,7 +277,7 @@ You can register your own field encoders for any type:
 
         def json_schema(self) -> dict:
             # optional, but helpful to specify a custom validation
-            # if you don't want any validation, return {} in your 
+            # if you don't want any validation, return {} in your
             # implementation.
             return {
                 "type": "array",
@@ -283,7 +288,7 @@ You can register your own field encoders for any type:
 
 
     @dataclass
-    class Custom(object):
+    class Custom:
         rational: Rational
 
 
@@ -311,7 +316,7 @@ before and after either loading or dumping:
 
 
     @dataclass
-    class Custom(object):
+    class Custom:
         firstname: str
         lastname: str
 
@@ -337,7 +342,7 @@ argument of the :func:`serpyco.field` function:
 .. code-block:: python
 
     @dataclasses.dataclass
-    class CastedOnLoad(object):
+    class CastedOnLoad:
         value: int = serpyco.field(cast_on_load=True)
 
     serializer = serpyco.Serializer(CastedOnLoad)
@@ -351,11 +356,12 @@ during the cast of the value.
 Serialize objects which are not dataclass instances
 ===================================================
 
-Serpyco is primarly made to serialize dataclass objects, but you can also use it to dump/load your existing classes:
+Serpyco is primarly made to serialize dataclass objects, but you can also use
+it to dump/load your existing classes:
 
 .. code-block:: python
 
-    class Existing(object):
+    class Existing:
         def __init__(self, name: str, value: int) -> None:
             self.name = name
             self.value = value
@@ -365,18 +371,13 @@ Serpyco is primarly made to serialize dataclass objects, but you can also use it
 
 
     @dataclasses.dataclass
-    class Schema(object):
+    class Schema:
         name: str
         value: int
 
-        @staticmethod
-        @serpyco.post_load
-        def create_existing(obj: "Schema") -> Existing:
-            return Existing(obj.name, obj.value)
 
+    serializer = serpyco.Serializer(Schema, load_as_type=Existing)
 
-    serializer = serpyco.Serializer(Schema)
-    
     >>> serializer.dump(Existing(name="hello", value=42))
     {'name': 'hello', 'value': 42}
 
@@ -395,7 +396,7 @@ Dataclasses which are generic are supported, for example:
     class Gen(typing.Generic[T]):
         name: str
         value: T
-    
+
     serializer = serpyco.Serializer(Gen[int])
     >>> serializer.dump(Gen(name="hello", value=42))
     {'name': 'hello', 'value': 42}

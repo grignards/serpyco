@@ -1,5 +1,16 @@
 # Serpyco changelog
 
+## v1.0.0
+
+- refactor: improve loading speed by a factor of 3 (now only 1.5x slower than dump)
+- refactor: improve error messages
+- refactor: move `many` parameter to dump/load methods of Serializer
+- feat: `load_as_type` parameter for Serializer for easier loading of non-dataclass objects
+
+## v0.18.2
+
+- fix: avoid calling a field encoder with a `None` value
+
 ## v0.18.1
 
 - fix: dump sets as list since sets are not JSON serializable + didn't work with a set of hashable objects
