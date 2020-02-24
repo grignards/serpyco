@@ -511,7 +511,8 @@ cdef class Serializer(object):
                 else:
                     raise TypeError(
                         "data dictionary is missing "
-                        f"required parameter '{sfield.field_name}' for class '{self._dataclass.__qualname__}'"
+                        f"required parameter '{sfield.field_name}' "
+                        f"for class '{self._dataclass.__qualname__}'"
                     )
             setattr(obj, sfield.field_name, decoded)
         return obj

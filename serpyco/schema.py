@@ -110,8 +110,6 @@ class SchemaBuilder(object):
                 or (exclude and f.name in exclude)
             ):
                 continue
-            if hints.dict_key is None:
-                hints.dict_key = f.name
             self._fields.append(_SchemaBuilderField(f, hints))
 
     def __hash__(self) -> int:

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import abc
+import itertools
 import copy
+import dataclasses
 import typing
 
 import rapidjson  # type: ignore
@@ -68,6 +70,12 @@ class AbstractValidator(abc.ABC):
                     pass
 
 
+@dataclasses.dataclass
+class ValidationFailure:
+    schema: JsonDict
+    exception: rapidjson.ValidationError
+
+
 class RapidJsonValidator(AbstractValidator):
     """
     Schema validator using rapidjson.
@@ -83,130 +91,180 @@ class RapidJsonValidator(AbstractValidator):
         super().__init__(schema, field_validators)
         self._validator = rapidjson.Validator(rapidjson.dumps(schema))
 
-    def validate_json(self, json_string: str) -> None:
-        messages: typing.List[str] = []
-        failing_data_paths: typing.List[str] = []
-        data: typing.Optional[JsonDict] = None
+    def validate_json(self, json_string: str, indent: int = 2) -> None:
         schema_copy: typing.Optional[JsonDict] = None
+        validators: typing.List[typing.Tuple[rapidjson.Validator, JsonDict]]
+        validators = [(self._validator, self._schema)]
+        validation_failures: typing.List[ValidationFailure] = []
 
-        validates = False
-        # start with the whole-schema
-        validator = self._validator
-        while not validates:
+        while validators:
+            validator, schema = validators[0]
+            validators = validators[1:]
             try:
                 validator(json_string)
-                validates = True
             except rapidjson.ValidationError as exc:
-                if data is None:
-                    data = rapidjson.loads(json_string)
-                if schema_copy is None:
-                    schema_copy = copy.deepcopy(self._schema)
 
-                failing_data, failing_data_path, message = self._get_error_message(
-                    exc, data, schema_copy
+                failing_schema_part_name, failing_schema_path, failing_data_path = (
+                    exc.args
                 )
-                messages.append(
-                    f'value "{failing_data}" at path "{failing_data_path}" {message}'
+
+                if failing_schema_path == "#":
+                    # the root schema fails, no need to go deeper
+                    validation_failures.append(ValidationFailure(schema, exc))
+                    continue
+
+                failing_schema_components = failing_schema_path.split("/")[1:]
+                failing_schema_part = self._get_schema_part(
+                    failing_schema_components, failing_schema_part_name, schema
                 )
-                failing_data_paths.append(failing_data_path)
+                sub_schemas: typing.List[JsonDict]
+                if failing_schema_part_name == "anyOf":
+                    # re-validate against each sub schema
+                    assert isinstance(failing_schema_part, list)
+                    sub_schemas = failing_schema_part
+                    # Do not consider Optional errors
+                    if self._is_optional(sub_schemas):
+                        sub_schemas.pop()
+                else:
+                    sub_schemas = [{}]
+                    validation_failures.append(ValidationFailure(schema, exc))
 
-                failing_schema_path = exc.args[1].split("/")[1:]
+                for sub_schema in sub_schemas:
+                    schema_copy = copy.deepcopy(schema)
+                    if len(failing_schema_components) > 1:
+                        failing_schema_parent = self._get_value(
+                            failing_schema_components[:-1], schema_copy
+                        )
+                    else:
+                        failing_schema_parent = schema_copy
+                    failing_schema_parent[failing_schema_components[-1]] = sub_schema
 
-                if not failing_schema_path:
-                    # The root schema fails, no need to go deeper
-                    break
-                failing_schema_parent = RapidJsonValidator._get_value(
-                    failing_schema_path[:-1], schema_copy
-                )
-                failing_schema_parent[failing_schema_path[-1]] = {}
-                validator = rapidjson.Validator(rapidjson.dumps(schema_copy))
+                    validators.append(
+                        (rapidjson.Validator(rapidjson.dumps(schema_copy)), schema_copy)
+                    )
 
-        if messages:
-            schema_comment = self._schema.get("comment", "N/A")
-            raise ValidationError(
-                f'Validation failed for class "{schema_comment}":\n'
-                + "\n".join(f"- {m}" for m in messages),
-                dict(zip(failing_data_paths, messages)),
+        if validation_failures:
+            data = rapidjson.loads(json_string)
+            self._raise_validation_error(
+                data, schema.get("comment", "N/A"), validation_failures
             )
 
     def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
         self.validate_json(rapidjson.dumps(data))
 
     @staticmethod
-    def _get_value(path: typing.List[str], d: JsonDict) -> JsonDict:
-        for component in path:
+    def _get_value(components: typing.List[str], d: JsonDict) -> JsonDict:
+        for component in components:
             d = d[component]
         return d
 
-    def _get_error_message(
-        self,
-        exc: rapidjson.ValidationError,
-        data: JsonDict,
-        schema: JsonDict,
-        indent: int = 2,
-    ) -> typing.Tuple[JsonDict, str, str]:
-        schema_part_name, schema_path, data_path = exc.args
-        d = list(_get_values(data_path.split("/")[1:], data))[0]
+    @staticmethod
+    def _get_schema_part(
+        components: typing.List[str], part_name: str, schema: JsonDict
+    ) -> JsonDict:
+        schema_value = next(_get_values(components, schema))
+        return typing.cast(JsonDict, schema_value[part_name])
 
-        schema_values = list(_get_values(schema_path.split("/")[1:], schema))
-        schema_part = schema_values[0][schema_part_name]
+    @staticmethod
+    def _raise_validation_error(
+        data: typing.Union[JsonDict, typing.List[JsonDict]],
+        class_name: str,
+        validation_failures: typing.List[ValidationFailure],
+    ) -> None:
+        validation_failures = sorted(
+            validation_failures, key=lambda f: tuple(reversed(f.exception.args))
+        )
+        messages: typing.List[str] = []
+        failing_data_paths: typing.List[str] = []
+        for args, failures in itertools.groupby(
+            validation_failures, key=lambda f: tuple(reversed(f.exception.args))
+        ):
+            failing_data_path, failing_schema_path, failing_schema_part_name, = args
 
-        if "type" == schema_part_name:
-            if "null" == schema_part:
-                msg = f"must be None"
+            if failing_schema_path == "#":
+                failing_schema_parts = [next(failures).schema]
+                failing_data = data
             else:
-                data_type = d.__class__.__name__
-                msg = f'has type "{data_type}", expected "{schema_part}"'
+                failing_data = next(_get_values(failing_data_path.split("/")[1:], data))
+                failing_schema_components = failing_schema_path.split("/")[1:]
+                failing_schema_parts = [
+                    RapidJsonValidator._get_schema_part(
+                        failing_schema_components,
+                        failing_schema_part_name,
+                        failure.schema,
+                    )
+                    for failure in failures
+                ]
+
+            msg = RapidJsonValidator._get_error_message(
+                failing_data, failing_schema_part_name, failing_schema_parts
+            )
+
+            if failing_data_path != "#":
+                msg = f'value "{failing_data}" at path "{failing_data_path}" {msg}'
+            failing_data_paths.append(failing_data_path)
+            messages.append(msg)
+        raise ValidationError(
+            f'Validation failed for class "{class_name}":\n'
+            + "\n".join(f"- {m}" for m in messages),
+            dict(zip(failing_data_paths, messages)),
+        )
+
+    @staticmethod
+    def _get_error_message(
+        data: typing.Any, schema_part_name: str, schema_parts: typing.List[JsonDict]
+    ) -> str:
+        if "type" == schema_part_name:
+            data_type = data.__class__.__name__
+            msg = f'has type "{data_type}", expected '
+            possible_types = []
+            for schema_part in schema_parts:
+                if "null" == schema_part:
+                    possible_types.append('"NoneType"')
+                else:
+                    possible_types.append(f'"{schema_part}"')
+            if len(possible_types) > 1:
+                msg += " or ".join(possible_types)
+            else:
+                msg += possible_types[0]
         elif "pattern" == schema_part_name:
-            msg = f'does not match pattern, expected "{schema_part}"'
+            msg = f'does not match pattern, expected "{schema_parts[0]}"'
         elif "format" == schema_part_name:
-            msg = f'doesn\'t match defined format, expected "{schema_part}"'
+            msg = f'doesn\'t match defined format, expected "{schema_parts[0]}"'
         elif "maximum" == schema_part_name:
-            msg = f"must be <= {schema_part}"
+            msg = f"must be <= {schema_parts[0]}"
         elif "minimum" == schema_part_name:
-            msg = f"must be >= {schema_part}"
+            msg = f"must be >= {schema_parts[0]}"
         elif "maxLength" == schema_part_name:
-            le = len(d)
-            msg = f"must have its length <= {schema_part} but length is {le}"
+            le = len(data)
+            msg = f"must have its length <= {schema_parts[0]} but length is {le}"
         elif "minLength" == schema_part_name:
-            le = len(d)
-            msg = f"must have its length >= {schema_part} but length is {le}"
+            le = len(data)
+            msg = f"must have its length >= {schema_parts[0]} but length is {le}"
         elif "required" == schema_part_name:
             props = list(
-                set(typing.cast(typing.List[str], schema_part)) - set(d.keys())
+                set(typing.cast(typing.List[str], schema_parts[0])) - set(data.keys())
             )
             props = [f'"{s}"' for s in sorted(props)]
             missing = ", ".join(props)
-            msg = f"properties {missing} must be defined"
+            if len(props) > 1:
+                msg = f"must define properties {missing}"
+            else:
+                msg = f"must define property {missing}"
         elif "enum" == schema_part_name:
-            msg = f"must have a value in {schema_part}"
-        elif "anyOf" == schema_part_name:
-            messages: typing.List[str] = []
-            for sub_schema in schema_part:
-                # This was an union, let's validate with the sub-schemas to get a
-                # precise error message
-                try:
-                    ref = sub_schema["$ref"].split("/")[1:]
-                    sub_schema = next(_get_values(ref, schema))
-                except KeyError:
-                    pass
-                val = rapidjson.Validator(rapidjson.dumps(sub_schema))
-                try:
-                    val(rapidjson.dumps(d))
-                except rapidjson.ValidationError as e:
-                    messages.append(
-                        self._get_error_message(e, d, sub_schema, indent=indent + 2)[2]
-                    )
-            start_line = " " * indent + "- "
-            msg_string = start_line + f"\n{start_line}".join(messages)
-            msg = f"must match at least one of the following criteria:\n{msg_string}"
+            msg = f"must have a value in {schema_parts[0]}"
         elif "additionalProperties" == schema_part_name:
-            schema_properties = set(schema.get("properties", {}).keys())
+            print(data)
+            schema_properties = set(schema_parts[0].get("properties", {}).keys())
             data_properties = set(data.keys())
             props = list(data_properties - schema_properties)
             props = [f'"{s}"' for s in sorted(props)]
             additional = ", ".join(props)
             msg = f"properties {additional} cannot be defined"
         else:
-            msg = f"validation error {exc}"
-        return (d, data_path, msg)
+            msg = f"unknown validation error"
+        return msg
+
+    @staticmethod
+    def _is_optional(sub_schemas: typing.List[JsonDict]) -> bool:
+        return 2 == len(sub_schemas) and ("null" == sub_schemas[1].get("type"))

@@ -1343,10 +1343,7 @@ def test_unit__optional__err__validation_error_message():
     with pytest.raises(
         serpyco.ValidationError,
         match=re.escape(
-            r'value "bar" at path "#/foo" must match at least one of the '
-            r"following criteria:\n"
-            r"  - must have its length >= 5 but length is 3\n"
-            r"  - must be None"
+            r'value "bar" at path "#/foo" must have its length >= 5 but length is 3'
         ),
     ):
         serializer.load({"foo": "bar"})
@@ -1407,12 +1404,7 @@ def test_unit__validation_error_message__err__optional_sub_dataclass():
 
     with pytest.raises(
         serpyco.ValidationError,
-        match=re.escape(
-            r'- value "{}" at path "#/foo" must match at least one of the '
-            r"following criteria:\n"
-            r'  - properties "bar" must be defined\n'
-            r"  - must be None"
-        ),
+        match=re.escape(r'value "{}" at path "#/foo" must define property "bar"'),
     ):
         serpyco.Serializer(Bar).load({"hello": 42, "foo": {}})
 
