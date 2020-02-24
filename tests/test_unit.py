@@ -1453,3 +1453,20 @@ def test_unit__load__err__missing_parameter():
     serializer = serpyco.Serializer(Foo)
     with pytest.raises(TypeError):
         serializer.load({"name": "hello"}, validate=False)
+
+
+def test_unit__load__ok__custom_type():
+    @dataclasses.dataclass
+    class FooSchema:
+        name: str
+
+    class Foo:
+        def __init__(self, name):
+            self.name = name
+
+        def __eq__(self, other):
+            return isinstance(other, Foo) and other.name == self.name
+
+    serializer = serpyco.Serializer(FooSchema, load_as_type=Foo)
+
+    assert Foo("hello") == serializer.load({"name": "hello"})

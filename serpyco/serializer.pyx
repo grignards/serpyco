@@ -114,6 +114,7 @@ cdef class Serializer(object):
     cdef tuple _field_casters
     cdef dict _field_encoders
     cdef dict _type_encoders
+    cdef type _load_as_type
     cdef list _only
     cdef list _exclude
     _global_types = {
@@ -131,6 +132,7 @@ cdef class Serializer(object):
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
         strict: bool = False,
+        load_as_type: typing.Optional[type] = None,
         _parent_serializers: typing.List["Serializer"] = None
     ):
         """
@@ -225,6 +227,7 @@ cdef class Serializer(object):
             except AttributeError:
                 continue
         self._field_casters = tuple(field_casters)
+        self._load_as_type = load_as_type or self._dataclass
 
     def __hash__(self):
         return hash((
@@ -493,7 +496,7 @@ cdef class Serializer(object):
         cdef SField sfield
         cdef object decoded
         cdef object obj
-        obj = new_object(self._dataclass)
+        obj = new_object(self._load_as_type)
         for sfield in self._fields:
             try:
                 decoded = data[sfield.dict_key]
