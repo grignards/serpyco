@@ -35,7 +35,7 @@ class Dataclass(object):
 
 
 serializer = serpyco.Serializer(Dataclass)
-validator = serpyco.validator.RapidJsonValidator(serializer.json_schema())
+validator = serpyco.validator.RapidJsonValidator(serpyco.SchemaBuilder(Dataclass))
 test_object = Dataclass(
     name="Foo",
     value=42,

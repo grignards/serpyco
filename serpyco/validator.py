@@ -6,8 +6,9 @@ import dataclasses
 import typing
 
 import rapidjson  # type: ignore
+from serpyco.schema import SchemaBuilder
 from serpyco.exception import ValidationError
-from serpyco.util import FieldValidator, JsonDict, _get_values
+from serpyco.util import JsonDict, _get_values
 
 
 class AbstractValidator(abc.ABC):
@@ -16,38 +17,37 @@ class AbstractValidator(abc.ABC):
     Implementation shall raise serpyco.ValidationError().
     """
 
-    def __init__(
-        self,
-        schema: JsonDict,
-        field_validators: typing.Optional[
-            typing.List[typing.Tuple[str, FieldValidator]]
-        ] = None,
-    ) -> None:
-        self._schema = schema
-        self._field_validators = field_validators or []
+    def __init__(self, schema_builder: SchemaBuilder) -> None:
+        self._schema = schema_builder.json_schema(many=False)
+        self._many_schema = schema_builder.json_schema(many=True)
+        self._field_validators = schema_builder.field_validators()
 
-    def json_schema(self) -> JsonDict:
+    def json_schema(self, many: bool = False) -> JsonDict:
         """
         Returns the schema that this validator uses to validate.
         """
+        if many:
+            return self._many_schema
         return self._schema
 
     @abc.abstractmethod
-    def validate_json(self, json_string: str) -> None:
+    def validate_json(self, json_string: str, many: bool = False) -> None:
         """
         Validates a JSON string against this object's schema.
         """
         pass
 
     @abc.abstractmethod
-    def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
+    def validate(
+        self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool = False
+    ) -> None:
         """
         Validates the given data against this object's schema.
         """
         pass
 
     def validate_user(
-        self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool
+        self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool = False
     ) -> None:
         """
         Validates the given data with the user-defined validators.
@@ -55,10 +55,10 @@ class AbstractValidator(abc.ABC):
         :param data: data to validate, either a dict or a list of dicts (with many=True)
         :param many: if true, data will be considered as a list
         """
-        if not many:
-            datas = [typing.cast(JsonDict, data)]
-        else:
+        if many:
             datas = typing.cast(typing.List[JsonDict], data)
+        else:
+            datas = [typing.cast(JsonDict, data)]
 
         for d in datas:
             for path, validator in self._field_validators:
@@ -76,32 +76,42 @@ class ValidationFailure:
     exception: rapidjson.ValidationError
 
 
+@dataclasses.dataclass
+class ValidatorSchema:
+    schema: JsonDict
+    validator: rapidjson.Validator
+
+
 class RapidJsonValidator(AbstractValidator):
     """
     Schema validator using rapidjson.
     """
 
-    def __init__(
-        self,
-        schema: JsonDict,
-        field_validators: typing.Optional[
-            typing.List[typing.Tuple[str, FieldValidator]]
-        ] = None,
-    ) -> None:
-        super().__init__(schema, field_validators)
-        self._validator = rapidjson.Validator(rapidjson.dumps(schema))
+    def __init__(self, schema_builder: SchemaBuilder) -> None:
+        super().__init__(schema_builder)
+        self._validator = ValidatorSchema(
+            schema=self._schema,
+            validator=rapidjson.Validator(rapidjson.dumps(self._schema)),
+        )
+        self._many_validator = ValidatorSchema(
+            schema=self._many_schema,
+            validator=rapidjson.Validator(rapidjson.dumps(self._many_schema)),
+        )
 
-    def validate_json(self, json_string: str, indent: int = 2) -> None:
+    def validate_json(self, json_string: str, many: bool = False) -> None:
         schema_copy: typing.Optional[JsonDict] = None
-        validators: typing.List[typing.Tuple[rapidjson.Validator, JsonDict]]
-        validators = [(self._validator, self._schema)]
+        validators: typing.List[ValidatorSchema]
+        if many:
+            validators = [self._many_validator]
+        else:
+            validators = [self._validator]
         validation_failures: typing.List[ValidationFailure] = []
 
         while validators:
-            validator, schema = validators[0]
+            validator_schema = validators[0]
             validators = validators[1:]
             try:
-                validator(json_string)
+                validator_schema.validator(json_string)
             except rapidjson.ValidationError as exc:
 
                 failing_schema_part_name, failing_schema_path, failing_data_path = (
@@ -110,12 +120,16 @@ class RapidJsonValidator(AbstractValidator):
 
                 if failing_schema_path == "#":
                     # the root schema fails, no need to go deeper
-                    validation_failures.append(ValidationFailure(schema, exc))
+                    validation_failures.append(
+                        ValidationFailure(validator_schema.schema, exc)
+                    )
                     continue
 
                 failing_schema_components = failing_schema_path.split("/")[1:]
                 failing_schema_part = self._get_schema_part(
-                    failing_schema_components, failing_schema_part_name, schema
+                    failing_schema_components,
+                    failing_schema_part_name,
+                    validator_schema.schema,
                 )
                 sub_schemas: typing.List[JsonDict]
                 if failing_schema_part_name == "anyOf":
@@ -127,10 +141,12 @@ class RapidJsonValidator(AbstractValidator):
                         sub_schemas.pop()
                 else:
                     sub_schemas = [{}]
-                    validation_failures.append(ValidationFailure(schema, exc))
+                    validation_failures.append(
+                        ValidationFailure(validator_schema.schema, exc)
+                    )
 
                 for sub_schema in sub_schemas:
-                    schema_copy = copy.deepcopy(schema)
+                    schema_copy = copy.deepcopy(validator_schema.schema)
                     if len(failing_schema_components) > 1:
                         failing_schema_parent = self._get_value(
                             failing_schema_components[:-1], schema_copy
@@ -140,17 +156,22 @@ class RapidJsonValidator(AbstractValidator):
                     failing_schema_parent[failing_schema_components[-1]] = sub_schema
 
                     validators.append(
-                        (rapidjson.Validator(rapidjson.dumps(schema_copy)), schema_copy)
+                        ValidatorSchema(
+                            validator=rapidjson.Validator(rapidjson.dumps(schema_copy)),
+                            schema=schema_copy,
+                        )
                     )
 
         if validation_failures:
             data = rapidjson.loads(json_string)
             self._raise_validation_error(
-                data, schema.get("comment", "N/A"), validation_failures
+                data, validator_schema.schema.get("comment", "N/A"), validation_failures
             )
 
-    def validate(self, data: typing.Union[JsonDict, typing.List[JsonDict]]) -> None:
-        self.validate_json(rapidjson.dumps(data))
+    def validate(
+        self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool = False
+    ) -> None:
+        self.validate_json(rapidjson.dumps(data), many=many)
 
     @staticmethod
     def _get_value(components: typing.List[str], d: JsonDict) -> JsonDict:

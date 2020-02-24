@@ -105,7 +105,6 @@ cdef class Serializer(object):
     cdef tuple _fields
     cdef object _dataclass_params
     cdef type _dataclass
-    cdef bint _many
     cdef object _validator
     cdef list _parent_serializers
     cdef list _pre_dumpers
@@ -127,7 +126,6 @@ cdef class Serializer(object):
     def __cinit__(
         self,
         dataclass,
-        many: bool = False,
         omit_none: bool = True,
         type_encoders: typing.Dict[type, FieldEncoder] = None,
         only: typing.Optional[typing.List[str]] = None,
@@ -152,7 +150,6 @@ cdef class Serializer(object):
         cdef Serializer parent
         self._dataclass_params = _DataClassParams(dataclass)
         self._dataclass = self._dataclass_params.type_
-        self._many = many
         self._type_encoders = type_encoders or {}
         self._only = only or []
         self._exclude = exclude or []
@@ -199,16 +196,12 @@ cdef class Serializer(object):
             field_encoders.update(parent._field_encoders)
         builder = SchemaBuilder(
             dataclass,
-            many=many,
             only=only,
             exclude=exclude,
             type_encoders={**self._global_types, **self._type_encoders},
             strict=strict,
         )
-        self._validator = RapidJsonValidator(
-            builder.json_schema(),
-            builder.field_validators()
-        )
+        self._validator = RapidJsonValidator(builder)
 
         # pre/post load/dump methods
         self._post_dumpers = []
@@ -237,16 +230,15 @@ cdef class Serializer(object):
         return hash((
             self._dataclass,
             self._dataclass_params.arguments,
-            self._many,
             tuple(self._only),
             tuple(self._exclude)
         ))
 
-    def json_schema(self) -> JsonDict:
+    def json_schema(self, many: bool = False) -> JsonDict:
         """
         Returns the JSON schema of the underlying validator.
         """
-        return self._validator.json_schema()
+        return self._validator.json_schema(many=many)
 
     def get_dict_path(self, obj_path: typing.Sequence[str]) -> typing.List[str]:
         """
@@ -319,7 +311,8 @@ cdef class Serializer(object):
     cpdef inline dump(
         self,
         obj: typing.Union[object, typing.Iterable[object]],
-        validate: bool=False
+        bint validate: bool=False,
+        bint many: bool=False,
     ):
         """
         Dumps the object(s) in the form of a dict/list only
@@ -328,7 +321,7 @@ cdef class Serializer(object):
         :param validate: if True, the dumped data will be validated.
         """
         cdef list objs
-        if self._many:
+        if many:
             objs = obj
             for pre_dump in self._pre_dumpers:
                 objs = map(pre_dump, objs)
@@ -339,10 +332,10 @@ cdef class Serializer(object):
             data = self._dump(obj)
 
         if validate:
-            self._validator.validate(data)
-            self._validator.validate_user(data, many=self._many)
+            self._validator.validate(data, many=many)
+            self._validator.validate_user(data, many=many)
 
-        if self._many:
+        if many:
             for post_dump in self._post_dumpers:
                 data = map(post_dump, data)
         else:
@@ -354,7 +347,8 @@ cdef class Serializer(object):
     cpdef inline load(
         self,
         data: typing.Union[dict, typing.Iterable[dict]],
-        validate: bool=True
+        bint validate: bool=True,
+        bint many: bool=False,
     ):
         """
         Loads the given data and returns object(s) of this serializer's
@@ -367,7 +361,7 @@ cdef class Serializer(object):
         cdef list objs
         cdef object obj
 
-        if self._many:
+        if many:
             datas = data
             if self._field_casters:
                 for data in datas:
@@ -382,10 +376,10 @@ cdef class Serializer(object):
                 data = pre_load(data)
 
         if validate:
-            self._validator.validate(data)
-            self._validator.validate_user(data, many=self._many)
+            self._validator.validate(data, many=many)
+            self._validator.validate_user(data, many=many)
 
-        if self._many:
+        if many:
             objs = [self._load(d) for d in datas]
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
@@ -399,7 +393,8 @@ cdef class Serializer(object):
     cpdef inline str dump_json(
         self,
         obj: typing.Union[object, typing.Iterable[object]],
-        validate: bool=False
+        bint validate: bool=False,
+        bint many: bool=False
     ):
         """
         Dumps the object(s) in the form of a JSON string.
@@ -408,7 +403,7 @@ cdef class Serializer(object):
         """
         cdef list objs
 
-        if self._many:
+        if many:
             objs = obj
             for pre_dump in self._pre_dumpers:
                 objs = map(pre_dump, objs)
@@ -422,13 +417,13 @@ cdef class Serializer(object):
         js = rapidjson.dumps(data)
 
         if validate:
-            self._validator.validate_json(js)
-            self._validator.validate_user(data, many=self._many)
+            self._validator.validate_json(js, many=many)
+            self._validator.validate_user(data, many=many)
 
         if not self._post_dumpers:
             return js
 
-        if self._many:
+        if many:
             for post_dump in self._post_dumpers:
                 data = map(post_dump, data)
         else:
@@ -438,7 +433,7 @@ cdef class Serializer(object):
         # We need to dump in JSON again as post_dump can modify data.
         return rapidjson.dumps(data)
 
-    cpdef inline load_json(self, js: str, validate: bool=True):
+    cpdef inline load_json(self, str js, bint validate: bool = True, bint many: bool = False):
         """
         Loads the given JSON string and returns object(s) of this serializer's
         dataclass.
@@ -452,7 +447,7 @@ cdef class Serializer(object):
 
         data = rapidjson.loads(js)
 
-        if self._many:
+        if many:
             datas = data
             if self._field_casters:
                 for data in datas:
@@ -467,10 +462,10 @@ cdef class Serializer(object):
                 data = pre_load(data)
 
         if validate:
-            self._validator.validate(data)
-            self._validator.validate_user(data, many=self._many)
+            self._validator.validate(data, many=many)
+            self._validator.validate_user(data, many=many)
 
-        if self._many:
+        if many:
             objs = [self._load(d) for d in datas]
             for post_load in self._post_loaders:
                 objs = map(post_load, objs)
@@ -481,9 +476,9 @@ cdef class Serializer(object):
         return obj
 
     cdef inline dict _dump(self, object obj):
-        cdef dict data = {}
         cdef SField sfield
         cdef object encoded
+        cdef dict data = {}
         for sfield in self._fields:
             if sfield.getter is not None:
                 encoded = sfield.getter(obj)
@@ -497,6 +492,7 @@ cdef class Serializer(object):
     cdef inline object _load(self, dict data):
         cdef SField sfield
         cdef object decoded
+        cdef object obj
         obj = new_object(self._dataclass)
         for sfield in self._fields:
             try:
@@ -603,7 +599,6 @@ cdef class Serializer(object):
             h = hash((
                 params.type_,
                 params.arguments,
-                self._many,
                 tuple(hints.only),
                 tuple(hints.exclude)
             ))
@@ -643,9 +638,6 @@ cdef class DataClassFieldEncoder(FieldEncoder):
 
     def __cinit__(self, Serializer serializer):
         self._serializer = serializer
-
-    cdef set_many(self, bint many):
-        self._serializer._many = many
 
     cpdef inline load(self, value):
         return self._serializer._load(value)
@@ -711,7 +703,6 @@ cdef class IterableFieldEncoder(FieldEncoder):
     }
 
     def __cinit__(self, item_encoder, sequence_type):
-        cdef DataClassFieldEncoder dataclass_encoder
         self._item_encoder = item_encoder
         origin = typing_inspect.get_origin(sequence_type)
         self._iterable_type = self._iterable_types_mapping.get(origin, origin)

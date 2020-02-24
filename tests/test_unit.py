@@ -162,19 +162,19 @@ def test_unit__load_json__ok__nominal_case(types_object: Types) -> None:
 
 
 def test_unit__from_dump__ok__with_many(types_object: Types) -> None:
-    serializer = serpyco.Serializer(Types, many=True)
+    serializer = serpyco.Serializer(Types)
 
-    data = serializer.dump([types_object, types_object])
+    data = serializer.dump([types_object, types_object], many=True)
 
-    assert [types_object, types_object] == serializer.load(data)
+    assert [types_object, types_object] == serializer.load(data, many=True)
 
 
 def test_unit__from_dump_json__ok__with_many(types_object: Types) -> None:
-    serializer = serpyco.Serializer(Types, many=True)
+    serializer = serpyco.Serializer(Types)
 
-    data = serializer.dump_json([types_object, types_object])
+    data = serializer.dump_json([types_object, types_object], many=True)
 
-    assert [types_object, types_object] == serializer.load_json(data)
+    assert [types_object, types_object] == serializer.load_json(data, many=True)
 
 
 def test_unit__json_schema__ok__nominal_case() -> None:
@@ -236,11 +236,11 @@ def test_unit__json_schema__ok__nominal_case() -> None:
         ],
         "additionalProperties": True,
         "type": "object",
-    } == serializer.json_schema()
+    } == serializer.json_schema(many=False)
 
 
 def test_unit__json_schema__ok__with_many() -> None:
-    serializer = serpyco.Serializer(Types, many=True)
+    serializer = serpyco.Serializer(Types)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
@@ -304,7 +304,7 @@ def test_unit__json_schema__ok__with_many() -> None:
             "type": "object",
         },
         "type": "array",
-    } == serializer.json_schema()
+    } == serializer.json_schema(many=True)
 
 
 def test_unit__json_schema__ok__cycle() -> None:
@@ -934,9 +934,11 @@ def test_unit__dict_encoder__ok__nominal_case():
 
 
 def test_unit__rapidjson_validator__err_message():
-    val = serpyco.validator.RapidJsonValidator(
-        {"type": "object", "properties": {"name": {"type": "string"}}}
-    )
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+
+    val = serpyco.validator.RapidJsonValidator(serpyco.SchemaBuilder(Foo))
     with pytest.raises(
         serpyco.ValidationError,
         match=r'value "42" at path "#/name" has type "int", expected "string"',

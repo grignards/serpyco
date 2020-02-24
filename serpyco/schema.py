@@ -61,7 +61,6 @@ class SchemaBuilder(object):
     def __init__(
         self,
         dataclass: type,
-        many: bool = False,
         only: typing.Optional[typing.List[str]] = None,
         exclude: typing.Optional[typing.List[str]] = None,
         type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
@@ -88,7 +87,6 @@ class SchemaBuilder(object):
             validation fail
         """
         self._dataclass = _DataClassParams(dataclass)
-        self._many = many
         self._only = only or []
         self._exclude = exclude or []
         self._types = type_encoders or {}
@@ -96,6 +94,7 @@ class SchemaBuilder(object):
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: JsonDict = {}
+        self._many_schema: JsonDict = {}
         self._get_definition_name = get_definition_name
         self._strict = strict
 
@@ -117,7 +116,6 @@ class SchemaBuilder(object):
             (
                 self._dataclass.type_,
                 self._dataclass.arguments,
-                self._many,
                 tuple(self._only),
                 tuple(self._exclude),
             )
@@ -132,17 +130,20 @@ class SchemaBuilder(object):
             self._schema = self._create_json_schema()
         return list(self._nested_builders)
 
-    def json_schema(self) -> JsonDict:
+    def json_schema(self, many: bool = False) -> JsonDict:
         """
         Returns the json schema built from this SchemaBuilder's dataclass.
         """
-        if not self._schema:
-            self._schema = self._create_json_schema()
-        return copy.deepcopy(self._schema)
+        if many:
+            if not self._schema:
+                self._schema = self._create_json_schema(many=many)
+            return copy.deepcopy(self._schema)
+        else:
+            if not self._many_schema:
+                self._many_schema = self._create_json_schema(many=many)
+            return copy.deepcopy(self._many_schema)
 
     def field_validators(self) -> typing.List[typing.Tuple[str, FieldValidator]]:
-        if not self._schema:
-            self._schema = self._create_json_schema()
         return [(f"#/{name}", validator) for name, validator in self._field_validators]
 
     @classmethod
@@ -161,6 +162,7 @@ class SchemaBuilder(object):
 
     def _create_json_schema(
         self,
+        many: bool = False,
         embeddable: bool = False,
         parent_builders: typing.Optional[typing.List["SchemaBuilder"]] = None,
     ) -> JsonDict:
@@ -173,6 +175,7 @@ class SchemaBuilder(object):
         """
         parent_builders = parent_builders or []
         parent_builders.append(self)
+        no_field_validators = not self._field_validators
 
         definitions: JsonDict = {}  # noqa: E704
 
@@ -239,7 +242,6 @@ class SchemaBuilder(object):
                             (
                                 params.type_,
                                 params.arguments,
-                                False,
                                 tuple(vfield.hints.only),
                                 tuple(vfield.hints.exclude),
                             )
@@ -262,19 +264,20 @@ class SchemaBuilder(object):
                         )
 
                         # Get the format validators defined in the sub-schema
-                        for sub_field_name, validator in sub._field_validators:
-                            if is_iterable:
-                                path = vfield.field.name + "/*/" + sub_field_name
-                            else:
-                                path = vfield.field.name + "/" + sub_field_name
-                            self._field_validators.append((path, validator))
+                        if no_field_validators:
+                            for sub_field_name, validator in sub._field_validators:
+                                if is_iterable:
+                                    path = vfield.field.name + "/*/" + sub_field_name
+                                else:
+                                    path = vfield.field.name + "/" + sub_field_name
+                                self._field_validators.append((path, validator))
 
                         definitions[definition_name] = None
                         definitions.update(item_schema)
             if is_required:
                 required.append(vfield.hints.dict_key)
 
-            if vfield.hints.validator:
+            if vfield.hints.validator and no_field_validators:
                 self._field_validators.append(
                     (vfield.field.name, vfield.hints.validator)
                 )
@@ -299,7 +302,7 @@ class SchemaBuilder(object):
                     self._exclude,
                 ): schema,
             }
-        elif not self._many:
+        elif not many:
             schema = {
                 **schema,
                 **{
@@ -408,10 +411,7 @@ class SchemaBuilder(object):
         else:
             try:
                 params = _DataClassParams(field_type)
-                if (
-                    params == parent_builders[0]._dataclass
-                    and not parent_builders[0]._many
-                ):
+                if params == parent_builders[0]._dataclass:
                     ref = "#"
                 else:
                     ref = "#/definitions/{}".format(
