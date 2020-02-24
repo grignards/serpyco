@@ -436,7 +436,12 @@ cdef class Serializer(object):
         # We need to dump in JSON again as post_dump can modify data.
         return rapidjson.dumps(data)
 
-    cpdef inline load_json(self, str js, bint validate: bool = True, bint many: bool = False):
+    cpdef inline load_json(
+        self,
+        str js,
+        bint validate: bool=True,
+        bint many: bool=False
+    ):
         """
         Loads the given JSON string and returns object(s) of this serializer's
         dataclass.
