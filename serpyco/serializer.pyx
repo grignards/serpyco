@@ -104,7 +104,7 @@ cdef class Serializer(object):
 
     cdef tuple _fields
     cdef object _dataclass_params
-    cdef type _dataclass
+    cdef object _dataclass
     cdef object _validator
     cdef list _parent_serializers
     cdef list _pre_dumpers
@@ -114,7 +114,7 @@ cdef class Serializer(object):
     cdef tuple _field_casters
     cdef dict _field_encoders
     cdef dict _type_encoders
-    cdef type _load_as_type
+    cdef object _load_as_type
     cdef list _only
     cdef list _exclude
     _global_types = {
