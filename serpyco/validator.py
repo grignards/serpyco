@@ -126,11 +126,9 @@ class RapidJsonValidator(AbstractValidator):
                     continue
 
                 failing_schema_components = failing_schema_path.split("/")[1:]
-                failing_schema_part = self._get_schema_part(
-                    failing_schema_components,
-                    failing_schema_part_name,
-                    validator_schema.schema,
-                )
+                failing_schema_part = next(
+                    _get_values(failing_schema_components, validator_schema.schema)
+                )[failing_schema_part_name]
                 sub_schemas: typing.List[JsonDict]
                 if failing_schema_part_name == "anyOf":
                     # re-validate against each sub schema
@@ -180,13 +178,6 @@ class RapidJsonValidator(AbstractValidator):
         return d
 
     @staticmethod
-    def _get_schema_part(
-        components: typing.List[str], part_name: str, schema: JsonDict
-    ) -> JsonDict:
-        schema_value = next(_get_values(components, schema))
-        return typing.cast(JsonDict, schema_value[part_name])
-
-    @staticmethod
     def _raise_validation_error(
         data: typing.Union[JsonDict, typing.List[JsonDict]],
         class_name: str,
@@ -203,22 +194,18 @@ class RapidJsonValidator(AbstractValidator):
             failing_data_path, failing_schema_path, failing_schema_part_name, = args
 
             if failing_schema_path == "#":
-                failing_schema_parts = [next(failures).schema]
+                failing_schemas = [next(failures).schema]
                 failing_data = data
             else:
                 failing_data = next(_get_values(failing_data_path.split("/")[1:], data))
                 failing_schema_components = failing_schema_path.split("/")[1:]
-                failing_schema_parts = [
-                    RapidJsonValidator._get_schema_part(
-                        failing_schema_components,
-                        failing_schema_part_name,
-                        failure.schema,
-                    )
+                failing_schemas = [
+                    next(_get_values(failing_schema_components, failure.schema))
                     for failure in failures
                 ]
 
             msg = RapidJsonValidator._get_error_message(
-                failing_data, failing_schema_part_name, failing_schema_parts
+                failing_data, failing_schemas, failing_schema_part_name
             )
 
             if failing_data_path != "#":
@@ -233,13 +220,14 @@ class RapidJsonValidator(AbstractValidator):
 
     @staticmethod
     def _get_error_message(
-        data: typing.Any, schema_part_name: str, schema_parts: typing.List[JsonDict]
+        data: typing.Any, schemas: typing.List[JsonDict], schema_part_name: str
     ) -> str:
         if "type" == schema_part_name:
             data_type = data.__class__.__name__
             msg = f'has type "{data_type}", expected '
             possible_types = []
-            for schema_part in schema_parts:
+            for schema in schemas:
+                schema_part = schema[schema_part_name]
                 if "null" == schema_part:
                     possible_types.append('"NoneType"')
                 else:
@@ -249,22 +237,32 @@ class RapidJsonValidator(AbstractValidator):
             else:
                 msg += possible_types[0]
         elif "pattern" == schema_part_name:
-            msg = f'does not match pattern, expected "{schema_parts[0]}"'
+            msg = f'does not match pattern, expected "{schemas[0][schema_part_name]}"'
         elif "format" == schema_part_name:
-            msg = f'doesn\'t match defined format, expected "{schema_parts[0]}"'
+            msg = (
+                "doesn't match defined format, expected "
+                f'"{schemas[0][schema_part_name]}"'
+            )
         elif "maximum" == schema_part_name:
-            msg = f"must be <= {schema_parts[0]}"
+            msg = f"must be <= {schemas[0][schema_part_name]}"
         elif "minimum" == schema_part_name:
-            msg = f"must be >= {schema_parts[0]}"
+            msg = f"must be >= {schemas[0][schema_part_name]}"
         elif "maxLength" == schema_part_name:
             le = len(data)
-            msg = f"must have its length <= {schema_parts[0]} but length is {le}"
+            msg = (
+                "must have its length <= "
+                f"{schemas[0][schema_part_name]} but length is {le}"
+            )
         elif "minLength" == schema_part_name:
             le = len(data)
-            msg = f"must have its length >= {schema_parts[0]} but length is {le}"
+            msg = (
+                "must have its length >= "
+                f"{schemas[0][schema_part_name]} but length is {le}"
+            )
         elif "required" == schema_part_name:
             props = list(
-                set(typing.cast(typing.List[str], schema_parts[0])) - set(data.keys())
+                set(typing.cast(typing.List[str], schemas[0][schema_part_name]))
+                - set(data.keys())
             )
             props = [f'"{s}"' for s in sorted(props)]
             missing = ", ".join(props)
@@ -273,10 +271,9 @@ class RapidJsonValidator(AbstractValidator):
             else:
                 msg = f"must define property {missing}"
         elif "enum" == schema_part_name:
-            msg = f"must have a value in {schema_parts[0]}"
+            msg = f"must have a value in {schemas[0][schema_part_name]}"
         elif "additionalProperties" == schema_part_name:
-            print(data)
-            schema_properties = set(schema_parts[0].get("properties", {}).keys())
+            schema_properties = set(schemas[0].get("properties", {}).keys())
             data_properties = set(data.keys())
             props = list(data_properties - schema_properties)
             props = [f'"{s}"' for s in sorted(props)]
