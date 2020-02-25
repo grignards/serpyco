@@ -1,5 +1,11 @@
 # Serpyco changelog
 
+## v1.0.1
+
+- fix: bug in schema generation for list of sub-objects
+- fix: error message for required properties
+- fix: load of frozen dataclass objects
+
 ## v1.0.0
 
 - refactor: improve loading speed by a factor of 3 (now only 1.5x slower than dump)
