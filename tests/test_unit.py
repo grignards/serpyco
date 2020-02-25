@@ -30,7 +30,7 @@ class Enum(enum.Enum):
 
 
 @dataclasses.dataclass
-class Simple(object):
+class Simple:
     """
     Basic class.
     """
@@ -39,7 +39,7 @@ class Simple(object):
 
 
 @dataclasses.dataclass
-class Types(object):
+class Types:
     """
     Testing class for supported serializer types.
     """
@@ -58,20 +58,6 @@ class Types(object):
     optional: typing.Optional[int] = None
 
 
-@dataclasses.dataclass
-class First(object):
-    """Cycle test class"""
-
-    second: "Second"
-
-
-@dataclasses.dataclass
-class Second(object):
-    """Cycle test class"""
-
-    first: First
-
-
 @pytest.fixture
 def types_object() -> Types:
     return Types(
@@ -87,6 +73,27 @@ def types_object() -> Types:
         mapping={"foo": "bar"},
         datetime_=datetime.datetime(2018, 11, 1, 14, 23, 43, 123456),
     )
+
+
+@dataclasses.dataclass
+class First:
+    """Circular reference test class"""
+
+    second: "Second"
+
+
+@dataclasses.dataclass
+class Second:
+    """Circular reference test class"""
+
+    first: First
+
+
+@dataclasses.dataclass
+class TreeNode:
+    """Circular reference test class"""
+
+    sub_nodes: typing.List["TreeNode"]
 
 
 def test_unit__dump__ok__nominal_case(types_object: Types) -> None:
@@ -307,7 +314,7 @@ def test_unit__json_schema__ok__with_many() -> None:
     } == serializer.json_schema(many=True)
 
 
-def test_unit__json_schema__ok__cycle() -> None:
+def test_unit__json_schema__ok__circular_reference() -> None:
     builder = serpyco.SchemaBuilder(First)
     assert {
         "$schema": "http://json-schema.org/draft-04/schema#",
@@ -315,14 +322,14 @@ def test_unit__json_schema__ok__cycle() -> None:
         "definitions": {
             "test_unit.Second": {
                 "comment": "test_unit.Second",
-                "description": "Cycle test class",
+                "description": "Circular reference test class",
                 "properties": {"first": {"$ref": "#"}},
                 "required": ["first"],
                 "type": "object",
                 "additionalProperties": True,
             }
         },
-        "description": "Cycle test class",
+        "description": "Circular reference test class",
         "properties": {"second": {"$ref": "#/definitions/test_unit.Second"}},
         "required": ["second"],
         "additionalProperties": True,
@@ -332,6 +339,20 @@ def test_unit__json_schema__ok__cycle() -> None:
     assert 1 == len(nested)
     assert "test_unit.Second" == nested[0][0]
     assert isinstance(nested[0][1], serpyco.SchemaBuilder)
+
+
+def test_unit__json_schema__ok__circular_reference_one_class() -> None:
+    builder = serpyco.SchemaBuilder(TreeNode)
+    assert {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "comment": "test_unit.TreeNode",
+        "definitions": {},
+        "description": "Circular reference test class",
+        "properties": {"sub_nodes": {"items": {"$ref": "#"}, "type": "array"}},
+        "required": ["sub_nodes"],
+        "additionalProperties": True,
+        "type": "object",
+    } == builder.json_schema()
 
 
 def test_unit__dump_json__ok__validate() -> None:
@@ -360,7 +381,7 @@ def test_unit__load_json__ok__validate() -> None:
 
 def test_unit__union__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithUnion(object):
+    class WithUnion:
         """Union test class"""
 
         foo: typing.Union[str, int]
@@ -389,7 +410,7 @@ def test_unit__union__ok__nominal_case() -> None:
 
 def test_unit__tuple__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithTuple(object):
+    class WithTuple:
         """Tuple test class"""
 
         tuple_: typing.Tuple[str, int]
@@ -417,7 +438,7 @@ def test_unit__tuple__ok__nominal_case() -> None:
 
 def test_unit__uniform_tuple__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithTuple(object):
+    class WithTuple:
         """Tuple test class"""
 
         tuple_: typing.Tuple[str, ...]
@@ -440,7 +461,7 @@ def test_unit__uniform_tuple__ok__nominal_case() -> None:
 
 def test_unit__set__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithSet(object):
+    class WithSet:
         """Set test class"""
 
         set_: typing.Set[str]
@@ -455,7 +476,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
     datetime_ = mock.Mock()
 
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         """Nested"""
 
         name: str = serpyco.string_field(
@@ -463,7 +484,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
         )
 
     @dataclasses.dataclass
-    class WithStringField(object):
+    class WithStringField:
         """String field test class"""
 
         foo: str = serpyco.string_field(
@@ -513,7 +534,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
 
 def test_unit__number_field__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithNumberField(object):
+    class WithNumberField:
         """Number field test class"""
 
         foo: int = serpyco.number_field(minimum=0, maximum=12)
@@ -536,7 +557,7 @@ def test_unit__number_field__ok__nominal_case() -> None:
 
 def test_unit__field_dict_key__ok__nominal_case() -> None:
     @dataclasses.dataclass
-    class WithDictKeyField(object):
+    class WithDictKeyField:
         """Dict key test class"""
 
         foo: str = serpyco.field(dict_key="bar")
@@ -671,7 +692,7 @@ def test_unit__global_type_encoders__ok__nominal_case() -> None:
 
 def test_unit__ignore__ok__nominal_case():
     @dataclasses.dataclass
-    class Ignore(object):
+    class Ignore:
         """Ignore test class"""
 
         foo: str = serpyco.field(ignore=True)
@@ -692,7 +713,7 @@ def test_unit__ignore__ok__nominal_case():
 
 def test_unit__only__ok__nominal_case():
     @dataclasses.dataclass
-    class Only(object):
+    class Only:
         """Only test class"""
 
         foo: str
@@ -714,7 +735,7 @@ def test_unit__only__ok__nominal_case():
 
 def test_unit__field_description_and_examples__ok__nominal_case():
     @dataclasses.dataclass
-    class Desc(object):
+    class Desc:
         """Description test class"""
 
         foo: str = serpyco.field(
@@ -742,7 +763,7 @@ def test_unit__field_description_and_examples__ok__nominal_case():
 
 def test_unit__field_default__ok__nominal_case():
     @dataclasses.dataclass
-    class Desc(object):
+    class Desc:
         """Description test class"""
 
         foo: str = "foo"
@@ -773,7 +794,7 @@ def test_unit__field_default__ok__nominal_case():
 
 def test_unit__decorators__ok__nominal_case():
     @dataclasses.dataclass
-    class Decorated(object):
+    class Decorated:
         foo: typing.Optional[str]
         bar: int
 
@@ -815,7 +836,7 @@ def test_unit__decorators__ok__nominal_case():
 
 def test_unit__exclude__ok__nominal_case():
     @dataclasses.dataclass
-    class Exclude(object):
+    class Exclude:
         """Exclude test class"""
 
         foo: str
@@ -837,14 +858,14 @@ def test_unit__exclude__ok__nominal_case():
 
 def test_unit__nested_field__ok__nominal_case():
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         """Nested test class"""
 
         foo: str
         bar: str
 
     @dataclasses.dataclass
-    class Parent(object):
+    class Parent:
         """Parent test class"""
 
         first: Nested = serpyco.nested_field(only=["foo"])
@@ -888,11 +909,11 @@ def test_unit__nested_field__ok__nominal_case():
 
 def test_unit__get_dict_object_path__ok__nominal_case():
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         foo: str = serpyco.field(dict_key="bar")
 
     @dataclasses.dataclass
-    class Parent(object):
+    class Parent:
         nested: Nested = serpyco.field(dict_key="n")
         nesteds: typing.List[Nested] = serpyco.field(dict_key="ns")
         mapped: typing.Dict[str, Nested] = serpyco.field(dict_key="mp")
@@ -916,11 +937,11 @@ def test_unit__dict_encoder__ok__nominal_case():
             return value
 
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         foo: str
 
     @dataclasses.dataclass
-    class Parent(object):
+    class Parent:
         mapping: typing.Dict[str, Nested]
         custom: typing.Dict[int, Nested]
 
@@ -948,7 +969,7 @@ def test_unit__rapidjson_validator__err_message():
 
 def test_unit__field_cast_on_load__ok__nominal_case():
     @dataclasses.dataclass
-    class CastOnLoad(object):
+    class CastOnLoad:
         value: int = serpyco.field(cast_on_load=True)
 
     serializer = serpyco.Serializer(CastOnLoad)
@@ -957,7 +978,7 @@ def test_unit__field_cast_on_load__ok__nominal_case():
 
 def test_unit__field_cast_on_load__err_exception_during_casting():
     @dataclasses.dataclass
-    class CastOnLoad(object):
+    class CastOnLoad:
         value: int = serpyco.field(cast_on_load=True)
 
     serializer = serpyco.Serializer(CastOnLoad)
@@ -967,13 +988,13 @@ def test_unit__field_cast_on_load__err_exception_during_casting():
 
 def test_unit__custom_definition_name__ok__nominal_case():
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         """Nested"""
 
         value: int
 
     @dataclasses.dataclass
-    class Class(object):
+    class Class:
         """Class"""
 
         nested: Nested
@@ -1005,7 +1026,7 @@ def test_unit__custom_definition_name__ok__nominal_case():
 
 def test_unit__not_init_fields__ok__nominal_case():
     @dataclasses.dataclass
-    class Class(object):
+    class Class:
         """Class"""
 
         one: str
@@ -1020,13 +1041,13 @@ def test_unit__not_init_fields__ok__nominal_case():
 
 def test_unit__schema__ok__with_default_dataclass():
     @dataclasses.dataclass
-    class Nested(object):
+    class Nested:
         """Nested"""
 
         name: str = "Hello"
 
     @dataclasses.dataclass
-    class Class(object):
+    class Class:
         """Class"""
 
         one: str
@@ -1079,7 +1100,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
     } == serializer.json_schema()
 
     @dataclasses.dataclass
-    class WithGen(object):
+    class WithGen:
         "With a generic."
         nested: Gen[int]
 
@@ -1137,7 +1158,7 @@ def test_unit__generic_dataclass__ok__nominal_case():
 
 def test_unit__schema__ok__none_default():
     @dataclasses.dataclass
-    class Def(object):
+    class Def:
         """Def."""
 
         foo: typing.Optional[int] = None
@@ -1194,7 +1215,7 @@ def test_unit__union_field_encoder__err__validation_error():
 
 def test_unit__optional__custom_encoder__ok__nominal_case():
     @dataclasses.dataclass
-    class OptionalCustom(object):
+    class OptionalCustom:
         """OptionalCustom."""
 
         name: typing.Optional[str]
@@ -1220,11 +1241,11 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
 
 
 def test_unit__serializer__err__nested_not_dataclass():
-    class Nested(object):
+    class Nested:
         pass
 
     @dataclasses.dataclass
-    class Foo(object):
+    class Foo:
         n: Nested
 
     with pytest.raises(serpyco.NoEncoderError):
@@ -1237,7 +1258,7 @@ def test_unit__serializer__err__nested_not_dataclass():
 
 def test_unit__schema__ok__allowed_values():
     @dataclasses.dataclass
-    class WithAllowedValues(object):
+    class WithAllowedValues:
         """WithAllowedValues."""
 
         foo: int = serpyco.number_field(allowed_values=[1, 2, 3])
@@ -1265,7 +1286,7 @@ def test_unit__schema__ok__allowed_values_with_enum():
         THREE = 3
 
     @dataclasses.dataclass
-    class WithAllowedValues(object):
+    class WithAllowedValues:
         """WithAllowedValues."""
 
         foo: Enumerate = serpyco.field(allowed_values=[Enumerate.ONE, Enumerate.TWO])
@@ -1470,3 +1491,13 @@ def test_unit__load__ok__custom_type():
     serializer = serpyco.Serializer(FooSchema, load_as_type=Foo)
 
     assert Foo("hello") == serializer.load({"name": "hello"})
+
+
+def test_run_load__ok__frozen_dataclass():
+    @dataclasses.dataclass(frozen=True)
+    class Frozen:
+        name: str
+
+    serializer = serpyco.Serializer(Frozen)
+
+    assert Frozen("hello") == serializer.load({"name": "hello"})
