@@ -260,7 +260,9 @@ class SchemaBuilder(object):
                         self._nested_builders |= sub._nested_builders
 
                         item_schema = sub._create_json_schema(
-                            embeddable=True, parent_builders=parent_builders
+                            embeddable=True,
+                            parent_builders=parent_builders,
+                            many=is_iterable,
                         )
 
                         # Get the format validators defined in the sub-schema
