@@ -105,6 +105,7 @@ cdef class Serializer(object):
     cdef tuple _fields
     cdef object _dataclass_params
     cdef object _dataclass
+    cdef bint _frozen_dataclass
     cdef object _validator
     cdef list _parent_serializers
     cdef list _pre_dumpers
@@ -150,6 +151,7 @@ cdef class Serializer(object):
             validation fail
         """
         cdef Serializer parent
+        cdef SField field
         self._dataclass_params = _DataClassParams(dataclass)
         self._dataclass = self._dataclass_params.type_
         self._type_encoders = type_encoders or {}
@@ -228,6 +230,15 @@ cdef class Serializer(object):
                 continue
         self._field_casters = tuple(field_casters)
         self._load_as_type = load_as_type or self._dataclass
+        # Check if the dataclass is frozen or not
+        try:
+            if self._fields:
+                field = self._fields[0]
+                obj = new_object(self._load_as_type)
+                setattr(obj, field.field_name, None)
+            self._frozen_dataclass = False
+        except dataclasses.FrozenInstanceError:
+            self._frozen_dataclass = True
 
     def __hash__(self):
         return hash((
@@ -518,7 +529,11 @@ cdef class Serializer(object):
                         f"required parameter '{sfield.field_name}' "
                         f"for class '{self._dataclass.__qualname__}'"
                     )
-            setattr(obj, sfield.field_name, decoded)
+            # Cannot use setattr() on frozen dataclasses
+            if not self._frozen_dataclass:
+                setattr(obj, sfield.field_name, decoded)
+            else:
+                object.__setattr__(obj, sfield.field_name, decoded)
         return obj
 
     def _get_field_serializer(self, sfield: SField) -> "Serializer":
