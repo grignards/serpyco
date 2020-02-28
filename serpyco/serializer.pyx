@@ -633,6 +633,7 @@ cdef class Serializer(object):
                 type_encoders=hints.type_encoders or self._type_encoders,
                 only=hints.only,
                 exclude=hints.exclude,
+                load_as_type=hints.load_as_type,
                 _parent_serializers=self._parent_serializers,
             )
         return DataClassFieldEncoder(serializer)

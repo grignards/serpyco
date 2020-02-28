@@ -32,6 +32,7 @@ class FieldHints(object):
     type_encoders: typing.Dict[type, FieldEncoder] = dataclasses.field(
         default_factory=dict
     )
+    load_as_type: typing.Optional[type] = None
 
 
 _field_hints_names = set(f.name for f in dataclasses.fields(FieldHints))
@@ -223,6 +224,7 @@ def nested_field(
     only: typing.Optional[typing.List[str]] = None,
     exclude: typing.Optional[typing.List[str]] = None,
     type_encoders: typing.Optional[typing.Dict[type, FieldEncoder]] = None,
+    load_as_type: typing.Optional[type] = None,
     dict_key: typing.Optional[str] = None,
     ignore: bool = False,
     getter: typing.Optional[Getter] = None,
@@ -262,5 +264,6 @@ def nested_field(
         only=only,
         exclude=exclude,
         type_encoders=type_encoders,
+        load_as_type=load_as_type,
         **kwargs,
     )

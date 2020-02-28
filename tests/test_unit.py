@@ -1477,20 +1477,37 @@ def test_unit__load__err__missing_parameter():
 
 
 def test_unit__load__ok__custom_type():
+    class Bar:
+        def __init__(self, id):
+            self.id = id
+
+        def __eq__(self, other):
+            return isinstance(other, Bar) and other.id == self.id
+
+    class Foo:
+        def __init__(self, name, bar):
+            self.name = name
+            self.bar = bar
+
+        def __eq__(self, other):
+            return (
+                isinstance(other, Foo)
+                and other.name == self.name
+                and other.bar == self.bar
+            )
+
+    @dataclasses.dataclass
+    class BarSchema:
+        id: int
+
     @dataclasses.dataclass
     class FooSchema:
         name: str
-
-    class Foo:
-        def __init__(self, name):
-            self.name = name
-
-        def __eq__(self, other):
-            return isinstance(other, Foo) and other.name == self.name
+        bar: BarSchema = serpyco.nested_field(load_as_type=Bar)
 
     serializer = serpyco.Serializer(FooSchema, load_as_type=Foo)
 
-    assert Foo("hello") == serializer.load({"name": "hello"})
+    assert Foo("hello", Bar(1)) == serializer.load({"name": "hello", "bar": {"id": 1}})
 
 
 def test_run_load__ok__frozen_dataclass():

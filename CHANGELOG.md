@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.1.0
+
+- feat: add `load_as_type` argument to `nested_field()`
+
 ## v1.0.1
 
 - fix: bug in schema generation for list of sub-objects
