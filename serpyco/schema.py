@@ -320,7 +320,7 @@ class SchemaBuilder(object):
         vfield: _SchemaBuilderField,
     ) -> typing.Tuple[JsonDict, bool]:
         field_type = self._dataclass.resolve_type(field_type)
-        args = typing_inspect.get_args(field_type)
+        args = typing_inspect.get_args(field_type, evaluate=True)
         required = True
         try:
             schema = self._types[field_type].json_schema()
@@ -451,7 +451,7 @@ class SchemaBuilder(object):
             or _is_generic(field_type, typing.Mapping)
             or _is_generic(field_type, typing.Iterable)
         ):
-            for arg in typing_inspect.get_args(field_type):
+            for arg in typing_inspect.get_args(field_type, evaluate=True):
                 types |= cls._get_types(arg)
         else:
             types.add(field_type)

@@ -79,7 +79,7 @@ cdef inline int cast_fields(tuple casters, dict data) except -1:
         except KeyError:
             continue
         if _is_union(caster.caster):
-            types = list(typing_inspect.get_args(caster.caster))
+            types = list(typing_inspect.get_args(caster.caster, evaluate=True))
             types.remove(type(None))
         else:
             types = [caster.caster]
@@ -556,7 +556,7 @@ cdef class Serializer(object):
     def _get_encoder(self, field_type, hints):
 
         field_type = self._dataclass_params.resolve_type(field_type)
-        args = typing_inspect.get_args(field_type)
+        args = typing_inspect.get_args(field_type, evaluate=True)
 
         if field_type in self._type_encoders:
             return self._type_encoders[field_type]
@@ -570,7 +570,7 @@ cdef class Serializer(object):
         elif _issubclass_safe(field_type, tuple(JSON_ENCODABLE_TYPES.keys())):
             return None
         elif _is_union(field_type):
-            args = list(typing_inspect.get_args(field_type))
+            args = list(typing_inspect.get_args(field_type, evaluate=True))
             try:
                 args.remove(type(None))
             except ValueError:
