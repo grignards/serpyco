@@ -1510,7 +1510,7 @@ def test_unit__load__ok__custom_type():
     assert Foo("hello", Bar(1)) == serializer.load({"name": "hello", "bar": {"id": 1}})
 
 
-def test_run_load__ok__frozen_dataclass():
+def test_unit__load__ok__frozen_dataclass():
     @dataclasses.dataclass(frozen=True)
     class Frozen:
         name: str
@@ -1518,3 +1518,20 @@ def test_run_load__ok__frozen_dataclass():
     serializer = serpyco.Serializer(Frozen)
 
     assert Frozen("hello") == serializer.load({"name": "hello"})
+
+
+def test_unit__ok__schema_optional_dict_dataclass():
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+
+    @dataclasses.dataclass
+    class FooDict:
+        foos: typing.Optional[typing.Dict[str, Foo]]
+
+    @dataclasses.dataclass
+    class Bar:
+        foo_dict: FooDict
+
+    schema = serpyco.SchemaBuilder(Bar).json_schema()
+    assert "test_unit.Foo" in list(schema["definitions"].keys())

@@ -184,7 +184,6 @@ class SchemaBuilder(object):
         required = []
         for vfield in self._fields:
             field_type = type_hints[vfield.field.name]
-            args = typing_inspect.get_args(field_type)
             field_type = self._dataclass.resolve_type(field_type)
 
             field_schema, is_required = self._get_field_schema(
@@ -210,18 +209,10 @@ class SchemaBuilder(object):
 
             properties[vfield.hints.dict_key] = field_schema
 
-            # Update definitions to objects
-            item_types = [field_type]
-            is_iterable = False
-            if _is_union(field_type):
-                item_types = args
-            elif _is_generic(field_type, typing.Mapping):
-                item_types = [args[1]]
-            elif _is_generic(field_type, typing.Iterable):
-                is_iterable = True
-                item_types = [args[0]]
+            is_iterable = _is_generic(field_type, typing.Iterable)
 
-            for item_type in item_types:
+            # Update definitions to dataclasses
+            for item_type in self._get_types(field_type):
                 item_type = self._dataclass.resolve_type(item_type)
                 try:
                     params = _DataClassParams(item_type)
@@ -445,3 +436,23 @@ class SchemaBuilder(object):
             field_schema["enum"] = values
 
         return field_schema, required
+
+    @classmethod
+    def _get_types(cls, field_type: type) -> typing.Set[type]:
+        """Return the 'root' types of the given type.
+        This expands the arguments of the given type if it is:
+          - a Union
+          - a Mapping
+          - an Iterable
+        """
+        types: typing.Set[type] = set()
+        if (
+            _is_union(field_type)
+            or _is_generic(field_type, typing.Mapping)
+            or _is_generic(field_type, typing.Iterable)
+        ):
+            for arg in typing_inspect.get_args(field_type):
+                types |= cls._get_types(arg)
+        else:
+            types.add(field_type)
+        return types
