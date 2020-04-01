@@ -335,10 +335,7 @@ class SchemaBuilder(object):
         elif _is_union(field_type):
             schemas = [
                 self._get_field_schema(
-                    item_type,
-                    parent_builders,
-                    vfield,
-                    self_is_many
+                    item_type, parent_builders, vfield, self_is_many
                 )[0]
                 for item_type in args
             ]
@@ -377,10 +374,7 @@ class SchemaBuilder(object):
         elif _is_generic(field_type, typing.Mapping):
             field_schema = {"type": "object"}
             add = self._get_field_schema(
-                args[1],
-                parent_builders,
-                vfield,
-                self_is_many
+                args[1], parent_builders, vfield, self_is_many
             )[0]
             field_schema["additionalProperties"] = add
         elif _is_generic(field_type, tuple) and (
@@ -388,12 +382,9 @@ class SchemaBuilder(object):
         ):
             arg_len = len(args)
             items = [
-                self._get_field_schema(
-                    arg_type,
-                    parent_builders,
-                    vfield,
-                    self_is_many
-                )[0]
+                self._get_field_schema(arg_type, parent_builders, vfield, self_is_many)[
+                    0
+                ]
                 for arg_type in args
             ]
             field_schema = {

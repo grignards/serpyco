@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.2.2
+
+- fix: schema reference if parent used in a list and many=True is used to load/dump
+
 ## v1.2.1
 
 - fix: recursive dataclass declaration
