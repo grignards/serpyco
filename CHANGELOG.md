@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.2.1
+
+- fix: recursive dataclass declaration
+
 ## v1.2.0
 
 - fix: load with exclude/only/ignore fields

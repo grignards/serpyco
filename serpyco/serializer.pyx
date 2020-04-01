@@ -156,6 +156,7 @@ cdef class Serializer(object):
         self._dataclass = self._dataclass_params.type_
         self._type_encoders = type_encoders or {}
         self._parent_serializers = _parent_serializers or []
+        self._parent_serializers.append(self)
         self._excluded_fields = tuple()
         fields = []
         excluded_fields = []
@@ -197,7 +198,6 @@ cdef class Serializer(object):
         self._fields = tuple(fields)
         self._excluded_fields = tuple(excluded_fields)
 
-        self._parent_serializers.append(self)
         field_encoders = {}
         for parent in self._parent_serializers:
             field_encoders.update(parent._field_encoders)
@@ -244,11 +244,14 @@ cdef class Serializer(object):
             self._frozen_dataclass = True
 
     def __hash__(self):
-        cdef SField field
+        cdef SField sfield
+        excluded_field_names = []
+        for sfield in self._excluded_fields:
+            excluded_field_names.append(sfield.field_name)
         return hash((
             self._dataclass,
             self._dataclass_params.arguments,
-            tuple(field.field_name for field in self._excluded_fields)
+            tuple(excluded_field_names)
         ))
 
     def json_schema(self, many: bool = False) -> JsonDict:
@@ -637,7 +640,7 @@ cdef class Serializer(object):
         # See if one of our "ancestors" handles this dataclass.
         # This avoids infinite recursion if dataclasses establish a cycle
         for serializer in self._parent_serializers:
-            excluded_fields = (
+            excluded_field_names = tuple(
                 f.name for f in dataclasses.fields(params.type_)
                 if (
                     hints.ignore
@@ -646,7 +649,7 @@ cdef class Serializer(object):
                 )
             )
             sh = hash(serializer)
-            h = hash((params.type_, params.arguments, excluded_fields))
+            h = hash((params.type_, params.arguments, excluded_field_names))
             if h == sh:
                 break
         else:
