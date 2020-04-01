@@ -183,7 +183,7 @@ class SchemaBuilder(object):
             field_type = self._dataclass.resolve_type(field_type)
 
             field_schema, is_required = self._get_field_schema(
-                field_type, parent_builders, vfield=vfield
+                field_type, parent_builders, vfield=vfield, self_is_many=many
             )
 
             default_value = vfield.field.default
@@ -313,6 +313,7 @@ class SchemaBuilder(object):
         field_type: typing.Any,
         parent_builders: typing.List["SchemaBuilder"],
         vfield: _SchemaBuilderField,
+        self_is_many: bool,
     ) -> typing.Tuple[JsonDict, bool]:
         field_type = self._dataclass.resolve_type(field_type)
         args = typing_inspect.get_args(field_type, evaluate=True)
@@ -333,7 +334,12 @@ class SchemaBuilder(object):
             field_schema = {"type": "null"}
         elif _is_union(field_type):
             schemas = [
-                self._get_field_schema(item_type, parent_builders, vfield)[0]
+                self._get_field_schema(
+                    item_type,
+                    parent_builders,
+                    vfield,
+                    self_is_many
+                )[0]
                 for item_type in args
             ]
             field_schema = {"anyOf": schemas}
@@ -348,7 +354,7 @@ class SchemaBuilder(object):
             if len(member_types) == 1:
                 member_type = member_types.pop()
                 member_schema, _ = self._get_field_schema(
-                    member_type, parent_builders, vfield
+                    member_type, parent_builders, vfield, self_is_many
                 )
                 field_schema.update(member_schema)
             field_schema["enum"] = values
@@ -370,14 +376,24 @@ class SchemaBuilder(object):
                     field_schema[schema_attr] = attr
         elif _is_generic(field_type, typing.Mapping):
             field_schema = {"type": "object"}
-            add = self._get_field_schema(args[1], parent_builders, vfield)[0]
+            add = self._get_field_schema(
+                args[1],
+                parent_builders,
+                vfield,
+                self_is_many
+            )[0]
             field_schema["additionalProperties"] = add
         elif _is_generic(field_type, tuple) and (
             len(args) != 2 or args[len(args) - 1] is not ...
         ):
             arg_len = len(args)
             items = [
-                self._get_field_schema(arg_type, parent_builders, vfield)[0]
+                self._get_field_schema(
+                    arg_type,
+                    parent_builders,
+                    vfield,
+                    self_is_many
+                )[0]
                 for arg_type in args
             ]
             field_schema = {
@@ -390,17 +406,20 @@ class SchemaBuilder(object):
         elif _is_generic(field_type, typing.Iterable):
             field_schema = {"type": "array"}
             field_schema["items"] = self._get_field_schema(
-                args[0], parent_builders, vfield
+                args[0], parent_builders, vfield, self_is_many
             )[0]
         elif hasattr(field_type, "__supertype__"):  # NewType fields
             field_schema, _ = self._get_field_schema(
-                field_type.__supertype__, parent_builders, vfield
+                field_type.__supertype__, parent_builders, vfield, self_is_many
             )
         else:
             try:
                 params = _DataClassParams(field_type)
                 if params == parent_builders[0]._dataclass:
-                    ref = "#"
+                    if self_is_many:
+                        ref = "#/items"
+                    else:
+                        ref = "#"
                 else:
                     ref = "#/definitions/{}".format(
                         self._get_definition_name(
