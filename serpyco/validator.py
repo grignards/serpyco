@@ -114,9 +114,11 @@ class RapidJsonValidator(AbstractValidator):
                 validator_schema.validator(json_string)
             except rapidjson.ValidationError as exc:
 
-                failing_schema_part_name, failing_schema_path, failing_data_path = (
-                    exc.args
-                )
+                (
+                    failing_schema_part_name,
+                    failing_schema_path,
+                    failing_data_path,
+                ) = exc.args
 
                 if failing_schema_path == "#":
                     # the root schema fails, no need to go deeper

@@ -86,7 +86,7 @@ class SchemaBuilder(object):
         self._dataclass = _DataClassParams(dataclass)
         self._types = type_encoders or {}
         self._fields: typing.List[_SchemaBuilderField] = []
-        self._excluded_field_names = []
+        self._excluded_field_names: typing.List[str] = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: JsonDict = {}
@@ -220,7 +220,7 @@ class SchemaBuilder(object):
                 definition_name = self._get_definition_name(
                     params.type_,
                     params.arguments,
-                    self._get_excluded_field_names(params.type_, vfield.hints)
+                    self._get_excluded_field_names(params.type_, vfield.hints),
                 )
                 if definition_name not in definitions:
                     for builder in parent_builders:
@@ -229,9 +229,8 @@ class SchemaBuilder(object):
                                 params.type_,
                                 params.arguments,
                                 self._get_excluded_field_names(
-                                    params.type_,
-                                    vfield.hints
-                                )
+                                    params.type_, vfield.hints
+                                ),
                             )
                         ):
                             break
@@ -407,7 +406,7 @@ class SchemaBuilder(object):
                         self._get_definition_name(
                             params.type_,
                             params.arguments,
-                            self._get_excluded_field_names(params.type_, vfield.hints)
+                            self._get_excluded_field_names(params.type_, vfield.hints),
                         )
                     )
                 field_schema = {"$ref": ref}
@@ -454,9 +453,7 @@ class SchemaBuilder(object):
 
     @classmethod
     def _get_excluded_field_names(
-        cls,
-        dataclass: type,
-        hints: FieldHints
+        cls, dataclass: type, hints: FieldHints
     ) -> typing.Tuple[str, ...]:
         return tuple(
             f.name

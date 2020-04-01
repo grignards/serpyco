@@ -1544,17 +1544,24 @@ def test_unit_load__ok__excluded_fields():
         description: str = ""
 
     serializer = serpyco.Serializer(Foo, exclude=["description"])
-    assert Foo(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+    assert Foo(name="foo") == serializer.load(
+        {"name": "foo", "description": "excluded"}
+    )
 
     serializer = serpyco.Serializer(Foo, only=["name"])
-    assert Foo(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+    assert Foo(name="foo") == serializer.load(
+        {"name": "foo", "description": "excluded"}
+    )
 
     @dataclasses.dataclass
     class Bar:
         name: str
         description: str = serpyco.field(ignore=True, default="")
+
     serializer = serpyco.Serializer(Bar)
-    assert Bar(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+    assert Bar(name="foo") == serializer.load(
+        {"name": "foo", "description": "excluded"}
+    )
 
 
 def test_unit_load__err__excluded_fields_without_default():
@@ -1565,16 +1572,17 @@ def test_unit_load__err__excluded_fields_without_default():
 
     serializer = serpyco.Serializer(Foo, exclude=["description"])
     with pytest.raises(TypeError):
-        serializer.load({"name": "foo", "description":"excluded"})
+        serializer.load({"name": "foo", "description": "excluded"})
 
     serializer = serpyco.Serializer(Foo, only=["name"])
     with pytest.raises(TypeError):
-        serializer.load({"name": "foo", "description":"excluded"})
+        serializer.load({"name": "foo", "description": "excluded"})
 
     @dataclasses.dataclass
     class Bar:
         name: str
         description: str = serpyco.field(ignore=True)
+
     serializer = serpyco.Serializer(Bar)
     with pytest.raises(TypeError):
-        serializer.load({"name": "foo", "description":"excluded"})
+        serializer.load({"name": "foo", "description": "excluded"})
