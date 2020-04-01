@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v1.2.0
+
+- fix: load with exclude/only/ignore fields
+- refactor: get_definition_name now only takes 3 arguments
+
 ## v1.1.1
 
 - fix: forgotten definitions with optional mapping/iterable
