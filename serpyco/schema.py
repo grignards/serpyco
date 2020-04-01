@@ -21,15 +21,14 @@ from serpyco.util import (
 )
 
 GetDefinitionCallable = typing.Callable[
-    [type, typing.Iterable[type], typing.Iterable[str], typing.Iterable[str]], str
+    [type, typing.Iterable[type], typing.Iterable[str]], str
 ]
 
 
 def default_get_definition_name(
     type_: type,
     arguments: typing.Iterable[type],
-    only: typing.Iterable[str],
-    exclude: typing.Iterable[str],
+    excluded_field_names: typing.Iterable[str],
 ) -> str:
     """
     Ensures that a definition name is unique even for the same type
@@ -38,10 +37,8 @@ def default_get_definition_name(
     name = _get_qualified_type_name(type_)
     if arguments:
         name += "[" + ",".join([arg.__name__ for arg in arguments]) + "]"
-    if only:
-        name += "_only_" + "_".join(only)
-    if exclude:
-        name += "_exclude_" + "_".join(exclude)
+    if excluded_field_names:
+        name += "_exclude_" + "_".join(excluded_field_names)
     return name
 
 
@@ -87,10 +84,9 @@ class SchemaBuilder(object):
             validation fail
         """
         self._dataclass = _DataClassParams(dataclass)
-        self._only = only or []
-        self._exclude = exclude or []
         self._types = type_encoders or {}
         self._fields: typing.List[_SchemaBuilderField] = []
+        self._excluded_field_names = []
         self._nested_builders: typing.Set[typing.Tuple[str, "SchemaBuilder"]] = set()
         self._field_validators: typing.List[typing.Tuple[str, FieldValidator]] = []
         self._schema: JsonDict = {}
@@ -108,16 +104,16 @@ class SchemaBuilder(object):
                 or (only and f.name not in only)
                 or (exclude and f.name in exclude)
             ):
-                continue
-            self._fields.append(_SchemaBuilderField(f, hints))
+                self._excluded_field_names.append(f.name)
+            else:
+                self._fields.append(_SchemaBuilderField(f, hints))
 
     def __hash__(self) -> int:
         return hash(
             (
                 self._dataclass.type_,
                 self._dataclass.arguments,
-                tuple(self._only),
-                tuple(self._exclude),
+                tuple(self._excluded_field_names),
             )
         )
 
@@ -224,8 +220,7 @@ class SchemaBuilder(object):
                 definition_name = self._get_definition_name(
                     params.type_,
                     params.arguments,
-                    vfield.hints.only,
-                    vfield.hints.exclude,
+                    self._get_excluded_field_names(params.type_, vfield.hints)
                 )
                 if definition_name not in definitions:
                     for builder in parent_builders:
@@ -233,8 +228,10 @@ class SchemaBuilder(object):
                             (
                                 params.type_,
                                 params.arguments,
-                                tuple(vfield.hints.only),
-                                tuple(vfield.hints.exclude),
+                                self._get_excluded_field_names(
+                                    params.type_,
+                                    vfield.hints
+                                )
                             )
                         ):
                             break
@@ -291,8 +288,7 @@ class SchemaBuilder(object):
                 self._get_definition_name(
                     self._dataclass.type_,
                     self._dataclass.arguments,
-                    self._only,
-                    self._exclude,
+                    self._excluded_field_names,
                 ): schema,
             }
         elif not many:
@@ -411,8 +407,7 @@ class SchemaBuilder(object):
                         self._get_definition_name(
                             params.type_,
                             params.arguments,
-                            vfield.hints.only,
-                            vfield.hints.exclude,
+                            self._get_excluded_field_names(params.type_, vfield.hints)
                         )
                     )
                 field_schema = {"$ref": ref}
@@ -456,3 +451,19 @@ class SchemaBuilder(object):
         else:
             types.add(field_type)
         return types
+
+    @classmethod
+    def _get_excluded_field_names(
+        cls,
+        dataclass: type,
+        hints: FieldHints
+    ) -> typing.Tuple[str, ...]:
+        return tuple(
+            f.name
+            for f in dataclasses.fields(dataclass)
+            if (
+                hints.ignore
+                or (hints.only and f.name not in hints.only)
+                or (hints.exclude and f.name in hints.exclude)
+            )
+        )

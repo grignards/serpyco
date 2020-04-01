@@ -888,7 +888,7 @@ def test_unit__nested_field__ok__nominal_case():
                 "properties": {"bar": {"type": "string"}},
                 "required": ["bar"],
             },
-            "test_unit.Nested_only_foo": {
+            "test_unit.Nested_exclude_bar": {
                 "type": "object",
                 "additionalProperties": True,
                 "comment": "test_unit.Nested",
@@ -898,7 +898,7 @@ def test_unit__nested_field__ok__nominal_case():
             },
         },
         "properties": {
-            "first": {"$ref": "#/definitions/test_unit.Nested_only_foo"},
+            "first": {"$ref": "#/definitions/test_unit.Nested_exclude_bar"},
             "second": {"$ref": "#/definitions/test_unit.Nested_exclude_foo"},
         },
         "required": ["first", "second"],
@@ -1021,7 +1021,7 @@ def test_unit__custom_definition_name__ok__nominal_case():
         "type": "object",
         "additionalProperties": True,
     } == builder.json_schema()
-    get_definition_name.assert_called_with(Nested, (), [], [])
+    get_definition_name.assert_called_with(Nested, (), [])
 
 
 def test_unit__not_init_fields__ok__nominal_case():
@@ -1535,3 +1535,46 @@ def test_unit__ok__schema_optional_dict_dataclass():
 
     schema = serpyco.SchemaBuilder(Bar).json_schema()
     assert "test_unit.Foo" in list(schema["definitions"].keys())
+
+
+def test_unit_load__ok__excluded_fields():
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+        description: str = ""
+
+    serializer = serpyco.Serializer(Foo, exclude=["description"])
+    assert Foo(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+
+    serializer = serpyco.Serializer(Foo, only=["name"])
+    assert Foo(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+
+    @dataclasses.dataclass
+    class Bar:
+        name: str
+        description: str = serpyco.field(ignore=True, default="")
+    serializer = serpyco.Serializer(Bar)
+    assert Bar(name="foo") == serializer.load({"name": "foo", "description":"excluded"})
+
+
+def test_unit_load__err__excluded_fields_without_default():
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+        description: str
+
+    serializer = serpyco.Serializer(Foo, exclude=["description"])
+    with pytest.raises(TypeError):
+        serializer.load({"name": "foo", "description":"excluded"})
+
+    serializer = serpyco.Serializer(Foo, only=["name"])
+    with pytest.raises(TypeError):
+        serializer.load({"name": "foo", "description":"excluded"})
+
+    @dataclasses.dataclass
+    class Bar:
+        name: str
+        description: str = serpyco.field(ignore=True)
+    serializer = serpyco.Serializer(Bar)
+    with pytest.raises(TypeError):
+        serializer.load({"name": "foo", "description":"excluded"})

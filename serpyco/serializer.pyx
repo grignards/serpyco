@@ -117,7 +117,7 @@ cdef class Serializer(object):
     cdef dict _type_encoders
     cdef object _load_as_type
     cdef list _only
-    cdef list _exclude
+    cdef tuple _excluded_fields
     _global_types = {
         datetime.datetime: DateTimeFieldEncoder(),
         uuid.UUID: UuidFieldEncoder()
@@ -155,24 +155,16 @@ cdef class Serializer(object):
         self._dataclass_params = _DataClassParams(dataclass)
         self._dataclass = self._dataclass_params.type_
         self._type_encoders = type_encoders or {}
-        self._only = only or []
-        self._exclude = exclude or []
         self._parent_serializers = _parent_serializers or []
-        self._parent_serializers.append(self)
+        self._excluded_fields = tuple()
         fields = []
+        excluded_fields = []
         field_casters = []
-
         type_hints = typing.get_type_hints(self._dataclass)
         self._field_encoders = {}
         for f in dataclasses.fields(self._dataclass):
             field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
-            if (
-                hints.ignore
-                or (only and f.name not in only)
-                or (exclude and f.name in exclude)
-            ):
-                continue
             if hints.dict_key is None:
                 hints.dict_key = f.name
 
@@ -181,7 +173,8 @@ cdef class Serializer(object):
             encoder = self._get_encoder(field_type, hints)
             if encoder:
                 self._field_encoders[field_type] = encoder
-            fields.append(SField(
+
+            field = SField(
                 f.name,
                 hints.dict_key,
                 encoder,
@@ -189,12 +182,22 @@ cdef class Serializer(object):
                 f.init,
                 f.default,
                 f.default_factory
-            ))
+            )
+            if (
+                hints.ignore
+                or (only and f.name not in only)
+                or (exclude and f.name in exclude)
+            ):
+                excluded_fields.append(field)
+            else:
+                fields.append(field)
 
             if hints.cast_on_load:
                 field_casters.append(Caster(hints.dict_key, field_type))
         self._fields = tuple(fields)
+        self._excluded_fields = tuple(excluded_fields)
 
+        self._parent_serializers.append(self)
         field_encoders = {}
         for parent in self._parent_serializers:
             field_encoders.update(parent._field_encoders)
@@ -241,11 +244,11 @@ cdef class Serializer(object):
             self._frozen_dataclass = True
 
     def __hash__(self):
+        cdef SField field
         return hash((
             self._dataclass,
             self._dataclass_params.arguments,
-            tuple(self._only),
-            tuple(self._exclude)
+            tuple(field.field_name for field in self._excluded_fields)
         ))
 
     def json_schema(self, many: bool = False) -> JsonDict:
@@ -534,6 +537,22 @@ cdef class Serializer(object):
                 setattr(obj, sfield.field_name, decoded)
             else:
                 object.__setattr__(obj, sfield.field_name, decoded)
+        for sfield in self._excluded_fields:
+            if sfield.default is not dataclasses.MISSING:
+                decoded = sfield.default
+            elif sfield.default_factory is not dataclasses.MISSING:
+                decoded = sfield.default_factory()
+            else:
+                raise TypeError(
+                    f"Cannot create '{self._dataclass.__qualname__}' as "
+                    f"'{sfield.field_name}' is excluded but has no "
+                    "default value/factory"
+                )
+            # Cannot use setattr() on frozen dataclasses
+            if not self._frozen_dataclass:
+                setattr(obj, sfield.field_name, decoded)
+            else:
+                object.__setattr__(obj, sfield.field_name, decoded)
         return obj
 
     def _get_field_serializer(self, sfield: SField) -> "Serializer":
@@ -618,13 +637,16 @@ cdef class Serializer(object):
         # See if one of our "ancestors" handles this dataclass.
         # This avoids infinite recursion if dataclasses establish a cycle
         for serializer in self._parent_serializers:
+            excluded_fields = (
+                f.name for f in dataclasses.fields(params.type_)
+                if (
+                    hints.ignore
+                    or (hints.only and f.name not in hints.only)
+                    or (hints.exclude and f.name in hints.exclude)
+                )
+            )
             sh = hash(serializer)
-            h = hash((
-                params.type_,
-                params.arguments,
-                tuple(hints.only),
-                tuple(hints.exclude)
-            ))
+            h = hash((params.type_, params.arguments, excluded_fields))
             if h == sh:
                 break
         else:
