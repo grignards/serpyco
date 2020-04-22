@@ -404,3 +404,20 @@ Dataclasses which are generic are supported, for example:
     serializer = serpyco.Serializer(Gen[str])
     >>> serializer.dump(Gen(name="hello", value="hello"))
     {'name': 'hello', 'value': "hello"}
+
+
+Mixin class providing load/dump methods
+=======================================
+
+A helper class to provide load/dump methods to dataclass is provided:
+.. code-block:: python
+
+    @dataclasses.dataclass
+    class Foo(serpyco.SerializerMixin):
+        name: str
+
+    >>> Foo(name="hello").dump()
+    {'name': 'hello'}
+
+    >>> Foo.load({'name': 'hello'})
+    Foo(name='hello')

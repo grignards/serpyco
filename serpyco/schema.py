@@ -5,7 +5,7 @@ import typing
 
 import typing_inspect  # type: ignore
 
-from serpyco.encoder import FieldEncoder  # type: ignore
+from serpyco.encoder import FieldEncoder
 from serpyco.exception import NotADataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (

@@ -4,7 +4,7 @@ import enum
 import typing
 
 from serpyco.util import FieldValidator
-from serpyco.encoder import FieldEncoder  # type: ignore
+from serpyco.encoder import FieldEncoder
 
 _metadata_name = "serpyco"
 

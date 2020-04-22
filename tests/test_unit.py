@@ -1586,3 +1586,14 @@ def test_unit_load__err__excluded_fields_without_default():
     serializer = serpyco.Serializer(Bar)
     with pytest.raises(TypeError):
         serializer.load({"name": "foo", "description": "excluded"})
+
+
+def test_unit__ok__serializer_mixin():
+    @dataclasses.dataclass
+    class Foo(serpyco.SerializerMixin):
+        name: str
+
+    assert {"name": "Hello"} == Foo(name="Hello").dump()
+    assert Foo(name="Hello") == Foo.load({"name": "Hello"})
+    assert '{"name":"Hello"}' == Foo(name="Hello").dump_json()
+    assert Foo(name="Hello") == Foo.load_json('{"name":"Hello"}')

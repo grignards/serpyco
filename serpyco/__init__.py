@@ -16,13 +16,14 @@ __all__ = (
     "SchemaBuilder",
     "SchemaError",
     "Serializer",
+    "SerializerMixin",
     "string_field",
     "StringFormat",
     "ValidationError",
 )
 
 from serpyco.decorator import post_dump, post_load, pre_dump, pre_load
-from serpyco.encoder import FieldEncoder  # type: ignore
+from serpyco.encoder import FieldEncoder
 from serpyco.exception import (
     BaseSerpycoError,
     ValidationError,
@@ -30,7 +31,8 @@ from serpyco.exception import (
     SchemaError,
     NoEncoderError,
 )
-from serpyco.serializer import Serializer  # type: ignore
+from serpyco.serializer import Serializer
 from serpyco.schema import SchemaBuilder
 from serpyco.field import field, string_field, number_field, nested_field, StringFormat
+from serpyco.mixin import SerializerMixin
 from serpyco.validator import AbstractValidator
