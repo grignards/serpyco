@@ -199,8 +199,12 @@ class SchemaBuilder(object):
             # If a default value is provided, put it in the schema.
             # useful for documentation generation for example
             if default_value != dataclasses.MISSING:
-                if field_type in self._types and default_value is not None:
-                    default_value = self._types[field_type].dump(default_value)
+                if default_value is not None:
+                    if field_type in self._types:
+                        default_value = self._types[field_type].dump(default_value)
+                    elif _issubclass_safe(field_type, enum.Enum):
+                        default_value = default_value.value
+
                 field_schema["default"] = default_value
 
             properties[vfield.hints.dict_key] = field_schema
