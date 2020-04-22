@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v1.3.0
+
+- fix: enum default value (#35)
+- feat: mixin class providing dump()/load() on dataclasses
+
 ## v1.2.2
 
 - fix: schema reference if parent used in a list and many=True is used to load/dump
