@@ -711,7 +711,6 @@ cdef class FixedTupleFieldEncoder(FieldEncoder):
         cdef FieldEncoder encoder
         cdef int i
         decoded = []
-        print(len(value))
         if len(value) != self._item_encoders_count:
             raise ValidationError("Invalid number of items for tuple")
         for i in range(0, self._item_encoders_count):
