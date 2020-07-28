@@ -1603,12 +1603,14 @@ def test_unit_json_schema__ok__ignore_sub_field():
     @dataclasses.dataclass
     class Bar:
         """Bar"""
+
         value: int
         comment: str = serpyco.field(ignore=True)
 
     @dataclasses.dataclass
     class Foo:
         """Foo"""
+
         name: str
         bar: Bar
 
