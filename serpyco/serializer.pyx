@@ -556,6 +556,8 @@ cdef class Serializer(object):
                 setattr(obj, sfield.field_name, decoded)
             else:
                 object.__setattr__(obj, sfield.field_name, decoded)
+        if hasattr(obj, "__post_init__"):
+            obj.__post_init__()
         return obj
 
     def _get_field_serializer(self, sfield: SField) -> "Serializer":

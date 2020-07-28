@@ -1634,3 +1634,15 @@ def test_unit_json_schema__ok__ignore_sub_field():
         "required": ["name", "bar"],
         "type": "object",
     }
+
+
+def test_unit_load__ok__post_init():
+    @dataclasses.dataclass
+    class Foo:
+        def __post_init__(self) -> None:
+            self.name = "post_init_called"
+
+        name: str
+
+    foo = serpyco.Serializer(Foo).load({"name": "not_called"})
+    assert "post_init_called" == foo.name
