@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v1.3.1
+
+- fix: call `__post_init__` when loading if it is defined (#36)
+- fix: use field hints to compute definition name when creating JSON schema (#37)
+
 ## v1.3.0
 
 - fix: enum default value (#35)
