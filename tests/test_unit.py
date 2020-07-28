@@ -1597,3 +1597,40 @@ def test_unit__ok__serializer_mixin():
     assert Foo(name="Hello") == Foo.load({"name": "Hello"})
     assert '{"name":"Hello"}' == Foo(name="Hello").dump_json()
     assert Foo(name="Hello") == Foo.load_json('{"name":"Hello"}')
+
+
+def test_unit_json_schema__ok__ignore_sub_field():
+    @dataclasses.dataclass
+    class Bar:
+        value: int
+        comment: str = serpyco.field(ignore=True)
+
+    @dataclasses.dataclass
+    class Foo:
+        name: str
+        bar: Bar
+
+    schema_builder = serpyco.SchemaBuilder(Foo)
+    assert schema_builder.json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "additionalProperties": True,
+        "comment": "test_unit.Foo",
+        "definitions": {
+            "test_unit.Bar_exclude_comment": {
+                "additionalProperties": True,
+                "comment": "test_unit.Bar",
+                "description": "Bar(value: " "int, " "comment: " "str)",
+                "properties": {"value": {"type": "integer"}},
+                "required": ["value"],
+                "type": "object",
+            }
+        },
+        "description": "Foo(name: str, bar: "
+        "test_unit.test_unit_json_schema__ok__ignore_sub_field.<locals>.Bar)",
+        "properties": {
+            "bar": {"$ref": "#/definitions/test_unit.Bar_exclude_comment"},
+            "name": {"type": "string"},
+        },
+        "required": ["name", "bar"],
+        "type": "object",
+    }

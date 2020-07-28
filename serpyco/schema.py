@@ -469,12 +469,14 @@ class SchemaBuilder(object):
     def _get_excluded_field_names(
         cls, dataclass: type, hints: FieldHints
     ) -> typing.Tuple[str, ...]:
-        return tuple(
-            f.name
-            for f in dataclasses.fields(dataclass)
+        field_names = []
+        for f in dataclasses.fields(dataclass):
+            field_hints = f.metadata.get(_metadata_name)
             if (
-                hints.ignore
+                field_hints is not None
+                and field_hints.ignore
                 or (hints.only and f.name not in hints.only)
                 or (hints.exclude and f.name in hints.exclude)
-            )
-        )
+            ):
+                field_names.append(f.name)
+        return tuple(field_names)
