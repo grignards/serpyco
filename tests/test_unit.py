@@ -1602,11 +1602,13 @@ def test_unit__ok__serializer_mixin():
 def test_unit_json_schema__ok__ignore_sub_field():
     @dataclasses.dataclass
     class Bar:
+        """Bar"""
         value: int
         comment: str = serpyco.field(ignore=True)
 
     @dataclasses.dataclass
     class Foo:
+        """Foo"""
         name: str
         bar: Bar
 
@@ -1619,14 +1621,13 @@ def test_unit_json_schema__ok__ignore_sub_field():
             "test_unit.Bar_exclude_comment": {
                 "additionalProperties": True,
                 "comment": "test_unit.Bar",
-                "description": "Bar(value: " "int, " "comment: " "str)",
+                "description": "Bar",
                 "properties": {"value": {"type": "integer"}},
                 "required": ["value"],
                 "type": "object",
             }
         },
-        "description": "Foo(name: str, bar: "
-        "test_unit.test_unit_json_schema__ok__ignore_sub_field.<locals>.Bar)",
+        "description": "Foo",
         "properties": {
             "bar": {"$ref": "#/definitions/test_unit.Bar_exclude_comment"},
             "name": {"type": "string"},
