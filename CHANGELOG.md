@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.3.2
+
+- fix: do not create encoders for ignored fields
+
 ## v1.3.1
 
 - fix: call `__post_init__` when loading if it is defined (#36)
