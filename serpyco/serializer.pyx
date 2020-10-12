@@ -192,7 +192,7 @@ cdef class Serializer(object):
                 if hints.cast_on_load:
                     field_casters.append(Caster(hints.dict_key, field_type))
                 fields.append(field)
-            
+
         self._fields = tuple(fields)
         self._excluded_fields = tuple(excluded_fields)
 
