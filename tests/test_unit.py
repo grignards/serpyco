@@ -202,30 +202,16 @@ def test_unit__json_schema__ok__nominal_case() -> None:
         "description": "Testing class for supported serializer types.",
         "properties": {
             "boolean": {"type": "boolean"},
-            "datetime_": {
-                "format": "date-time",
-                "type": "string",
-                "pattern": iso8601_pattern,
-            },
-            "enum_": {
-                "description": "An enumerate.",
-                "enum": [1, 2],
-                "type": "integer",
-            },
+            "datetime_": {"format": "date-time", "type": "string", "pattern": iso8601_pattern,},
+            "enum_": {"description": "An enumerate.", "enum": [1, 2], "type": "integer",},
             "uid": {"type": "string", "format": "uuid"},
             "integer": {"type": "integer"},
             "items": {"items": {"type": "string"}, "type": "array"},
             "mapping": {"additionalProperties": {"type": "string"}, "type": "object"},
             "nested": {"$ref": "#/definitions/test_unit.Simple"},
-            "nesteds": {
-                "items": {"$ref": "#/definitions/test_unit.Simple"},
-                "type": "array",
-            },
+            "nesteds": {"items": {"$ref": "#/definitions/test_unit.Simple"}, "type": "array",},
             "number": {"type": "number"},
-            "optional": {
-                "anyOf": [{"type": "integer"}, {"type": "null"}],
-                "default": None,
-            },
+            "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None,},
             "string": {"type": "string"},
         },
         "required": [
@@ -265,33 +251,16 @@ def test_unit__json_schema__ok__with_many() -> None:
             "description": "Testing class for supported serializer types.",
             "properties": {
                 "boolean": {"type": "boolean"},
-                "datetime_": {
-                    "format": "date-time",
-                    "type": "string",
-                    "pattern": iso8601_pattern,
-                },
-                "enum_": {
-                    "description": "An enumerate.",
-                    "enum": [1, 2],
-                    "type": "integer",
-                },
+                "datetime_": {"format": "date-time", "type": "string", "pattern": iso8601_pattern,},
+                "enum_": {"description": "An enumerate.", "enum": [1, 2], "type": "integer",},
                 "uid": {"type": "string", "format": "uuid"},
                 "integer": {"type": "integer"},
                 "items": {"items": {"type": "string"}, "type": "array"},
-                "mapping": {
-                    "additionalProperties": {"type": "string"},
-                    "type": "object",
-                },
+                "mapping": {"additionalProperties": {"type": "string"}, "type": "object",},
                 "nested": {"$ref": "#/definitions/test_unit.Simple"},
-                "nesteds": {
-                    "items": {"$ref": "#/definitions/test_unit.Simple"},
-                    "type": "array",
-                },
+                "nesteds": {"items": {"$ref": "#/definitions/test_unit.Simple"}, "type": "array",},
                 "number": {"type": "number"},
-                "optional": {
-                    "anyOf": [{"type": "integer"}, {"type": "null"}],
-                    "default": None,
-                },
+                "optional": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None,},
                 "string": {"type": "string"},
             },
             "required": [
@@ -454,9 +423,7 @@ def test_unit__uniform_tuple__ok__nominal_case() -> None:
         "type": "object",
         "additionalProperties": True,
     } == serializer.json_schema()
-    assert WithTuple(tuple_=("foo", "bar")) == serializer.load(
-        {"tuple_": ["foo", "bar"]}
-    )
+    assert WithTuple(tuple_=("foo", "bar")) == serializer.load({"tuple_": ["foo", "bar"]})
 
 
 def test_unit__set__ok__nominal_case() -> None:
@@ -479,9 +446,7 @@ def test_unit__string_field_format_and_validators__ok__nominal_case() -> None:
     class Nested:
         """Nested"""
 
-        name: str = serpyco.string_field(
-            format_=serpyco.StringFormat.DATETIME, validator=datetime_
-        )
+        name: str = serpyco.string_field(format_=serpyco.StringFormat.DATETIME, validator=datetime_)
 
     @dataclasses.dataclass
     class WithStringField:
@@ -738,9 +703,7 @@ def test_unit__field_description_and_examples__ok__nominal_case():
     class Desc:
         """Description test class"""
 
-        foo: str = serpyco.field(
-            description="This is a foo", examples=["can be foo", "or bar"]
-        )
+        foo: str = serpyco.field(description="This is a foo", examples=["can be foo", "or bar"])
 
     serializer = serpyco.Serializer(Desc)
     assert {
@@ -946,10 +909,7 @@ def test_unit__dict_encoder__ok__nominal_case():
         custom: typing.Dict[int, Nested]
 
     serializer = serpyco.Serializer(Parent, type_encoders={int: CustomEncoder()})
-    assert {
-        "mapping": {"foo": {"foo": "bar"}},
-        "custom": {42: {"foo": "foo"}},
-    } == serializer.dump(
+    assert {"mapping": {"foo": {"foo": "bar"}}, "custom": {42: {"foo": "foo"}},} == serializer.dump(
         Parent(mapping={"foo": Nested(foo="bar")}, custom={42: Nested(foo="foo")})
     )
 
@@ -1169,9 +1129,7 @@ def test_unit__schema__ok__none_default():
         "comment": "test_unit.Def",
         "definitions": {},
         "description": "Def.",
-        "properties": {
-            "foo": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None}
-        },
+        "properties": {"foo": {"anyOf": [{"type": "integer"}, {"type": "null"}], "default": None}},
         "type": "object",
         "required": [],
         "additionalProperties": True,
@@ -1184,9 +1142,7 @@ def test_unit__union_field_encoder__ok__nominal_case():
     dummy.load.side_effect = lambda v: int(v)
     dummy_raise_at_load = mock.Mock()
     dummy_raise_at_load.load.side_effect = Exception
-    encoder = serpyco.serializer.UnionFieldEncoder(
-        [(int, dummy), (str, dummy_raise_at_load)]
-    )
+    encoder = serpyco.serializer.UnionFieldEncoder([(int, dummy), (str, dummy_raise_at_load)])
     encoder.dump(42)
     dummy.dump.assert_called_once_with(42)
     dummy_raise_at_load.dump.assert_not_called
@@ -1224,9 +1180,7 @@ def test_unit__optional__custom_encoder__ok__nominal_case():
         def json_schema(self):
             return {"type": "string"}
 
-    serializer = serpyco.Serializer(
-        OptionalCustom, type_encoders={str: CustomEncoder()}
-    )
+    serializer = serpyco.Serializer(OptionalCustom, type_encoders={str: CustomEncoder()})
 
     assert serializer.json_schema() == {
         "$schema": "http://json-schema.org/draft-04/schema#",
@@ -1298,9 +1252,7 @@ def test_unit__schema__ok__allowed_values_with_enum():
         "comment": "test_unit.WithAllowedValues",
         "definitions": {},
         "description": "WithAllowedValues.",
-        "properties": {
-            "foo": {"type": "integer", "enum": [1, 2], "description": "Enum."}
-        },
+        "properties": {"foo": {"type": "integer", "enum": [1, 2], "description": "Enum."}},
         "required": ["foo"],
         "type": "object",
         "additionalProperties": True,
@@ -1365,9 +1317,7 @@ def test_unit__optional__err__validation_error_message():
 
     with pytest.raises(
         serpyco.ValidationError,
-        match=re.escape(
-            r'value "bar" at path "#/foo" must have its length >= 5 but length is 3'
-        ),
+        match=re.escape(r'value "bar" at path "#/foo" must have its length >= 5 but length is 3'),
     ):
         serializer.load({"foo": "bar"})
 
@@ -1439,8 +1389,7 @@ def test_unit__strict_validation__err__additional_property():
 
     serializer = serpyco.Serializer(Foo, strict=True)
     with pytest.raises(
-        serpyco.ValidationError,
-        match=re.escape(r'properties "hello" cannot be defined'),
+        serpyco.ValidationError, match=re.escape(r'properties "hello" cannot be defined'),
     ):
         serializer.load({"hello": 42, "bar": "foo"})
 
@@ -1490,11 +1439,7 @@ def test_unit__load__ok__custom_type():
             self.bar = bar
 
         def __eq__(self, other):
-            return (
-                isinstance(other, Foo)
-                and other.name == self.name
-                and other.bar == self.bar
-            )
+            return isinstance(other, Foo) and other.name == self.name and other.bar == self.bar
 
     @dataclasses.dataclass
     class BarSchema:
@@ -1544,14 +1489,10 @@ def test_unit_load__ok__excluded_fields():
         description: str = ""
 
     serializer = serpyco.Serializer(Foo, exclude=["description"])
-    assert Foo(name="foo") == serializer.load(
-        {"name": "foo", "description": "excluded"}
-    )
+    assert Foo(name="foo") == serializer.load({"name": "foo", "description": "excluded"})
 
     serializer = serpyco.Serializer(Foo, only=["name"])
-    assert Foo(name="foo") == serializer.load(
-        {"name": "foo", "description": "excluded"}
-    )
+    assert Foo(name="foo") == serializer.load({"name": "foo", "description": "excluded"})
 
     @dataclasses.dataclass
     class Bar:
@@ -1559,9 +1500,7 @@ def test_unit_load__ok__excluded_fields():
         description: str = serpyco.field(ignore=True, default="")
 
     serializer = serpyco.Serializer(Bar)
-    assert Bar(name="foo") == serializer.load(
-        {"name": "foo", "description": "excluded"}
-    )
+    assert Bar(name="foo") == serializer.load({"name": "foo", "description": "excluded"})
 
 
 def test_unit_load__err__excluded_fields_without_default():
@@ -1649,3 +1588,16 @@ def test_unit_load__ok__post_init():
 
     foo = serpyco.Serializer(Foo).load({"name": "not_called"})
     assert "post_init_called" == foo.name
+
+
+def test_unit_serializer__ok__ignored_not_dataclass_field():
+    class Foo:
+        def __init__(self) -> None:
+            self.name = "Foo"
+
+    @dataclasses.dataclass
+    class Bar:
+        value: int
+        foo: Foo = serpyco.field(ignore=True)
+
+    serializer = serpyco.Serializer(Bar)

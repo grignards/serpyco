@@ -164,21 +164,14 @@ cdef class Serializer(object):
         type_hints = typing.get_type_hints(self._dataclass)
         self._field_encoders = {}
         for f in dataclasses.fields(self._dataclass):
-            field_type = type_hints[f.name]
             hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
             if hints.dict_key is None:
                 hints.dict_key = f.name
 
-            field_type = self._dataclass_params.resolve_type(field_type)
-
-            encoder = self._get_encoder(field_type, hints)
-            if encoder:
-                self._field_encoders[field_type] = encoder
-
             field = SField(
                 f.name,
                 hints.dict_key,
-                encoder,
+                None,
                 hints.getter,
                 f.init,
                 f.default,
@@ -191,10 +184,15 @@ cdef class Serializer(object):
             ):
                 excluded_fields.append(field)
             else:
+                field_type = self._dataclass_params.resolve_type(type_hints[f.name])
+                encoder = self._get_encoder(field_type, hints)
+                if encoder:
+                    self._field_encoders[field_type] = encoder
+                    field.encoder = encoder
+                if hints.cast_on_load:
+                    field_casters.append(Caster(hints.dict_key, field_type))
                 fields.append(field)
-
-            if hints.cast_on_load:
-                field_casters.append(Caster(hints.dict_key, field_type))
+            
         self._fields = tuple(fields)
         self._excluded_fields = tuple(excluded_fields)
 
