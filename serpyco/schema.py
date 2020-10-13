@@ -99,6 +99,8 @@ class SchemaBuilder(object):
                 hints = FieldHints(dict_key=f.name)
             else:
                 hints = f.metadata.get(_metadata_name, FieldHints(dict_key=f.name))
+            if hints.dict_key is None:
+                hints.dict_key = f.name
             if (
                 hints.ignore
                 or (only and f.name not in only)

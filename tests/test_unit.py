@@ -1662,3 +1662,12 @@ def test_unit_serializer__ok__ignored_not_dataclass_field():
         foo: Foo = serpyco.field(ignore=True)
 
     serpyco.Serializer(Bar)
+
+
+def test_unit_field_description__ok__nominal_case():
+    @dataclasses.dataclass
+    class Foo:
+        value: int = serpyco.field(description="An integer")
+
+    schema = serpyco.SchemaBuilder(Foo).json_schema()
+    assert "An integer" == schema["properties"]["value"]["description"]
