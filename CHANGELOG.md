@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.3.3
+
+- fix: properly initialize `dict_key` in `SchemaBuilder`
+
 ## v1.3.2
 
 - fix: do not create encoders for ignored fields
