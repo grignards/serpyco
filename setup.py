@@ -21,6 +21,8 @@ setup(
     author_email="pub@amakaze.org",
     url="https://gitlab.com/sgrignard/serpyco",
     packages=find_packages(),
+    package_data={"serpyco": ["*.pyi", "py.typed"]},
+    include_package_data=True,
     python_requires=">=3.6",
     setup_requires=[
         # Setuptools 18.0 properly handles Cython extensions.
