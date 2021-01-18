@@ -7,6 +7,8 @@ import dataslots
 
 import serpyco
 
+BENCHMARK_PEDANTIC_OPTIONS = {"rounds": 200, "warmup_rounds": 100, "iterations": 10}
+
 
 @dataslots.with_slots
 @dataclasses.dataclass
@@ -53,24 +55,42 @@ serializer.load(test_dict)
 
 
 def test_dump(benchmark):
-    benchmark(serializer.dump, test_object)
+    benchmark.pedantic(
+        serializer.dump, args=(test_object,), **BENCHMARK_PEDANTIC_OPTIONS
+    )
 
 
 def test_dump_json(benchmark):
-    benchmark(serializer.dump_json, test_object)
+    benchmark.pedantic(
+        serializer.dump_json, args=(test_object,), **BENCHMARK_PEDANTIC_OPTIONS
+    )
 
 
 def test_load(benchmark):
-    benchmark(serializer.load, test_dict, validate=False)
+    benchmark.pedantic(
+        serializer.load,
+        args=(test_dict,),
+        kwargs={"validate": False},
+        **BENCHMARK_PEDANTIC_OPTIONS
+    )
 
 
 def test_load_json(benchmark):
-    benchmark(serializer.load_json, test_json, validate=False)
+    benchmark.pedantic(
+        serializer.load_json,
+        args=(test_json,),
+        kwargs={"validate": False},
+        **BENCHMARK_PEDANTIC_OPTIONS
+    )
 
 
 def test_validate(benchmark):
-    benchmark(validator.validate, test_dict)
+    benchmark.pedantic(
+        validator.validate, args=(test_dict,), **BENCHMARK_PEDANTIC_OPTIONS
+    )
 
 
 def test_validate_json(benchmark):
-    benchmark(validator.validate_json, test_json)
+    benchmark.pedantic(
+        validator.validate_json, args=(test_json,), **BENCHMARK_PEDANTIC_OPTIONS
+    )
