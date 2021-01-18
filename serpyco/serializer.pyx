@@ -586,7 +586,7 @@ cdef class Serializer(object):
             return diter_encoder._serializer
         elif isinstance(encoder, DictFieldEncoder):
             dict_encoder = encoder
-            dencoder = dict_encoder._item_encoder
+            dencoder = dict_encoder._value_encoder
             return dencoder._serializer
         elif isinstance(encoder, DataClassFieldEncoder):
             dencoder = encoder
