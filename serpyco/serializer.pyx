@@ -589,8 +589,8 @@ cdef class Serializer(object):
             dencoder = dict_encoder._item_encoder
             return dencoder._serializer
         elif isinstance(encoder, DataClassFieldEncoder):
-           dencoder = encoder
-           return dencoder._serializer
+            dencoder = encoder
+            return dencoder._serializer
         raise ValueError(f"field {sfield.field_name} is not a dataclass")
 
     def _get_encoder(self, field_type, hints):
