@@ -39,8 +39,13 @@ from serpyco.validator import RapidJsonValidator
 
 cdef object dataclasses_MISSING = dataclasses.MISSING
 cdef object new_object = object.__new__
+_ITERABLE_TYPES_MAPPING = {
+    typing.Tuple: tuple,
+    typing.List: list,
+    typing.Set: set,
+}
 
-cdef class SField:
+cdef class SerializerField:
     cdef str field_name
     cdef str dict_key
     cdef FieldEncoder encoder
@@ -157,7 +162,7 @@ cdef class Serializer(object):
             validation fail
         """
         cdef Serializer parent
-        cdef SField field
+        cdef SerializerField field
         self._dataclass_params = _DataClassParams(dataclass)
         self._dataclass = self._dataclass_params.type_
         self._type_encoders = type_encoders or {}
@@ -174,7 +179,7 @@ cdef class Serializer(object):
             if hints.dict_key is None:
                 hints.dict_key = f.name
 
-            field = SField(
+            field = SerializerField(
                 f.name,
                 hints.dict_key,
                 None,
@@ -249,7 +254,7 @@ cdef class Serializer(object):
         self._has_post_init = hasattr(self._dataclass, "__post_init__")
 
     def __hash__(self):
-        cdef SField sfield
+        cdef SerializerField sfield
         excluded_field_names = []
         for sfield in self._excluded_fields:
             excluded_field_names.append(sfield.field_name)
@@ -271,7 +276,7 @@ cdef class Serializer(object):
         :param obj_path: list of field names, for example
         ["foo", "bar"] to get the dict path of foo.bar
         """
-        cdef SField sfield
+        cdef SerializerField sfield
         cdef Serializer ser
         part = obj_path[0]
         for sfield in self._fields:
@@ -292,7 +297,7 @@ cdef class Serializer(object):
         :param dict_path: list of dictionary keys, for example
         ["foo", "bar"] to get the object path of {"foo": {"bar": 42}}
         """
-        cdef SField sfield
+        cdef SerializerField sfield
         cdef Serializer ser
         part = dict_path[0]
         for sfield in self._fields:
@@ -506,7 +511,7 @@ cdef class Serializer(object):
         return obj
 
     cdef inline dict _dump(self, object obj):
-        cdef SField sfield
+        cdef SerializerField sfield
         cdef object encoded
         cdef dict data = {}
         for sfield in self._fields:
@@ -520,7 +525,7 @@ cdef class Serializer(object):
         return data
 
     cdef inline object _load(self, dict data):
-        cdef SField sfield
+        cdef SerializerField sfield
         cdef object decoded
         cdef object obj
         obj = new_object(self._load_as_type)
@@ -565,25 +570,31 @@ cdef class Serializer(object):
             obj.__post_init__()
         return obj
 
-    def _get_field_serializer(self, sfield: SField) -> "Serializer":
+    def _get_field_serializer(self, sfield: SerializerField) -> "Serializer":
         cdef FieldEncoder encoder = sfield.encoder
         cdef DataClassFieldEncoder dencoder
         cdef IterableFieldEncoder iter_encoder
+        cdef DataClassIterableFieldEncoder diter_encoder
         cdef DictFieldEncoder dict_encoder
         encoder = sfield.encoder
         if isinstance(encoder, IterableFieldEncoder):
             iter_encoder = encoder
-            encoder = iter_encoder._item_encoder
+            dencoder = iter_encoder._item_encoder
+            return dencoder._serializer
+        elif isinstance(encoder, DataClassIterableFieldEncoder):
+            diter_encoder = encoder
+            return diter_encoder._serializer
         elif isinstance(encoder, DictFieldEncoder):
             dict_encoder = encoder
-            encoder = dict_encoder._value_encoder
-        if not isinstance(encoder, DataClassFieldEncoder):
-            raise ValueError(f"field {sfield.field_name} is not a dataclass")
-        dencoder = encoder
-        return dencoder._serializer
+            dencoder = dict_encoder._item_encoder
+            return dencoder._serializer
+        elif isinstance(encoder, DataClassFieldEncoder):
+           dencoder = encoder
+           return dencoder._serializer
+        raise ValueError(f"field {sfield.field_name} is not a dataclass")
 
     def _get_encoder(self, field_type, hints):
-
+        cdef DataClassFieldEncoder dencoder
         field_type = self._dataclass_params.resolve_type(field_type)
         args = typing_inspect.get_args(field_type, evaluate=True)
 
@@ -636,6 +647,9 @@ cdef class Serializer(object):
             # tuples defined with ... are handled by the following elif
         elif _is_generic(field_type, typing.Iterable):
             item_encoder = self._get_encoder(args[0], hints)
+            if isinstance(item_encoder, DataClassFieldEncoder):
+                dencoder = item_encoder
+                return DataClassIterableFieldEncoder(dencoder._serializer, field_type)
             return IterableFieldEncoder(item_encoder, field_type)
 
         # Is the field a dataclass ?
@@ -671,6 +685,7 @@ cdef class Serializer(object):
         return DataClassFieldEncoder(serializer)
 
 
+# builtin field encoders
 @cython.final
 cdef class EnumFieldEncoder(FieldEncoder):
     cdef object _enum_type
@@ -700,6 +715,26 @@ cdef class DataClassFieldEncoder(FieldEncoder):
 
     cpdef inline dump(self, value):
         return self._serializer._dump(value)
+
+    def json_schema(self) -> JsonDict:
+        return None
+
+
+@cython.final
+cdef class DataClassIterableFieldEncoder(FieldEncoder):
+    cdef Serializer _serializer
+    cdef object _iterable_type
+
+    def __cinit__(self, serializer, sequence_type):
+        origin = typing_inspect.get_origin(sequence_type)
+        self._iterable_type = _ITERABLE_TYPES_MAPPING.get(origin, origin)
+        self._serializer = serializer
+
+    cpdef inline load(self, value):
+        return self._iterable_type([self._serializer._load(v) for v in value])
+
+    cpdef inline dump(self, value):
+        return [self._serializer._dump(v) for v in value]
 
     def json_schema(self) -> JsonDict:
         return None
@@ -751,16 +786,10 @@ cdef class IterableFieldEncoder(FieldEncoder):
     cdef FieldEncoder _item_encoder
     cdef object _iterable_type
 
-    _iterable_types_mapping = {
-        typing.Tuple: tuple,
-        typing.List: list,
-        typing.Set: set,
-    }
-
     def __cinit__(self, item_encoder, sequence_type):
         self._item_encoder = item_encoder
         origin = typing_inspect.get_origin(sequence_type)
-        self._iterable_type = self._iterable_types_mapping.get(origin, origin)
+        self._iterable_type = _ITERABLE_TYPES_MAPPING.get(origin, origin)
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
@@ -769,7 +798,7 @@ cdef class IterableFieldEncoder(FieldEncoder):
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            value = [self._item_encoder.dump(v) for v in value]
+            return [self._item_encoder.dump(v) for v in value]
         return list(value)
 
     def json_schema(self) -> JsonDict:
