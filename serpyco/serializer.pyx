@@ -6,6 +6,7 @@
 # cython: boundscheck=False
 
 
+import dataclasses
 import datetime
 import enum
 import re
@@ -14,23 +15,27 @@ import uuid
 
 import cython
 import dateutil.parser
-import dataclasses
 import rapidjson
 import typing_inspect
 
-from serpyco.decorator import _serpyco_tags, DecoratorType
+from serpyco.decorator import DecoratorType, _serpyco_tags
+
 from serpyco.encoder cimport FieldEncoder
-from serpyco.exception import ValidationError, NoEncoderError, NotADataClassError
+
+from serpyco.exception import NoEncoderError, NotADataClassError, ValidationError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
-from serpyco.util import JSON_ENCODABLE_TYPES, JsonDict, JsonEncodable
 from serpyco.util import (
+    JSON_ENCODABLE_TYPES,
+    JsonDict,
+    JsonEncodable,
+    _DataClassParams,
     _is_generic,
     _is_union,
     _issubclass_safe,
-    _DataClassParams
 )
 from serpyco.validator import RapidJsonValidator
+
 
 cdef object dataclasses_MISSING = dataclasses.MISSING
 cdef object new_object = object.__new__

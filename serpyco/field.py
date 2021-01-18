@@ -3,8 +3,8 @@ import dataclasses
 import enum
 import typing
 
-from serpyco.util import FieldValidator
 from serpyco.encoder import FieldEncoder
+from serpyco.util import FieldValidator
 
 _metadata_name = "serpyco"
 

@@ -3,30 +3,15 @@ stages:
   - test
   - doc
 
-image: python:3.7
+image: python:3.8
 
 before_script:
   - pip install -r requirements.txt
-
+  
 flake8:
   stage: style
   script:
     - flake8
-
-black:
-  stage: style
-  script:
-    - black --check .
-
-mypy:
-  stage: style
-  script:
-    - mypy --strict serpyco
-
-# isort:
-#   stage: style
-#   script:
-#     - isort -c -rc .
 
 tests-3.6:
   stage: test
@@ -41,7 +26,13 @@ tests-3.7:
 
 tests-3.8:
   stage: test
-  image: python:3.8-rc
+  image: python:3.8
+  script:
+    - python setup.py test
+
+tests-3.9:
+  stage: test
+  image: python:3.9
   script:
     - python setup.py test
 
@@ -58,4 +49,4 @@ pages:
     paths:
     - public
   only:
-    - master
+    - tags

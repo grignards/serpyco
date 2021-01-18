@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import abc
-import itertools
 import copy
 import dataclasses
+import itertools
 import typing
 
 import rapidjson  # type: ignore
-from serpyco.schema import SchemaBuilder
+
 from serpyco.exception import ValidationError
+from serpyco.schema import SchemaBuilder
 from serpyco.util import JsonDict, _get_values
 
 
@@ -193,7 +194,11 @@ class RapidJsonValidator(AbstractValidator):
         for args, failures in itertools.groupby(
             validation_failures, key=lambda f: tuple(reversed(f.exception.args))
         ):
-            failing_data_path, failing_schema_path, failing_schema_part_name, = args
+            (
+                failing_data_path,
+                failing_schema_path,
+                failing_schema_part_name,
+            ) = args
 
             if failing_schema_path == "#":
                 failing_schemas = [next(failures).schema]
@@ -282,7 +287,7 @@ class RapidJsonValidator(AbstractValidator):
             additional = ", ".join(props)
             msg = f"properties {additional} cannot be defined"
         else:
-            msg = f"unknown validation error"
+            msg = "unknown validation error"
         return msg
 
     @staticmethod
