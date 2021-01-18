@@ -67,7 +67,7 @@ def field(
 
     :param dict_key: key of the field in the dumped dictionary.
     :param ignore: if True, the field won't be considered by serpico.
-    :param getter: callable used to get values of this field.
+    :param getter: callable used to get values of this field when dumping.
         Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
@@ -133,7 +133,7 @@ def string_field(
 
     :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, this field won't be considered by serpico
-    :param getter: callable used to get values of this field.
+    :param getter: callable used to get values of this field when dumping.
         Must take one object argument
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
@@ -191,7 +191,7 @@ def number_field(
 
     :param dict_key: key of the field in the dumped dictionary
     :param ignore: if True, this field won't be considered by serpico
-    :param getter: callable used to get values of this field.
+    :param getter: callable used to get values of this field when dumping.
         Must take one object argument
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
