@@ -106,6 +106,7 @@ cdef class Serializer(object):
     cdef object _dataclass_params
     cdef object _dataclass
     cdef bint _frozen_dataclass
+    cdef bint _has_post_init
     cdef object _validator
     cdef list _parent_serializers
     cdef list _pre_dumpers
@@ -240,6 +241,7 @@ cdef class Serializer(object):
             self._frozen_dataclass = False
         except dataclasses.FrozenInstanceError:
             self._frozen_dataclass = True
+        self._has_post_init = hasattr(self._dataclass, "__post_init__")
 
     def __hash__(self):
         cdef SField sfield
@@ -554,7 +556,7 @@ cdef class Serializer(object):
                 setattr(obj, sfield.field_name, decoded)
             else:
                 object.__setattr__(obj, sfield.field_name, decoded)
-        if hasattr(obj, "__post_init__"):
+        if self._has_post_init:
             obj.__post_init__()
         return obj
 

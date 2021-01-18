@@ -5,6 +5,7 @@ __all__ = (
     "BaseSerpycoError",
     "field",
     "FieldEncoder",
+    "FieldHints",
     "nested_field",
     "NoEncoderError",
     "NotADataClassError",
@@ -24,6 +25,7 @@ __all__ = (
 
 from serpyco.decorator import post_dump, post_load, pre_dump, pre_load
 from serpyco.encoder import FieldEncoder
+from serpyco.field import FieldHints
 from serpyco.exception import (
     BaseSerpycoError,
     ValidationError,
