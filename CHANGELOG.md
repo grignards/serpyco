@@ -1,5 +1,14 @@
 # Serpyco changelog
 
+## v1.3.4
+
+- fix: get_dict_path() with dataclass dicts
+- fix: optional dataclass list (#40)
+- refactor: improve loading perf of dataclass iterables
+- refactor: small speedup when a __post_init__() method exists
+- chore: include mypy stub files to the package (courtesy of R. Pelloux-Prayer)
+
+
 ## v1.3.3
 
 - fix: properly initialize `dict_key` in `SchemaBuilder`
