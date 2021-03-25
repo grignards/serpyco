@@ -731,10 +731,21 @@ cdef class DataClassIterableFieldEncoder(FieldEncoder):
         self._serializer = serializer
 
     cpdef inline load(self, value):
-        return self._iterable_type([self._serializer._load(v) for v in value])
+        cdef lst = [
+            self._serializer._load(v)
+            if v is not None
+            else None
+            for v in value
+        ]
+        return self._iterable_type(lst)
 
     cpdef inline dump(self, value):
-        return [self._serializer._dump(v) for v in value]
+        return [
+            self._serializer._dump(v)
+            if v is not None
+            else None
+            for v in value
+        ]
 
     def json_schema(self) -> JsonDict:
         return None

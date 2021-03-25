@@ -1671,3 +1671,16 @@ def test_unit_field_description__ok__nominal_case():
 
     schema = serpyco.SchemaBuilder(Foo).json_schema()
     assert "An integer" == schema["properties"]["value"]["description"]
+
+
+def test_unit_optional_dataclass_list__ok__nominal_case():
+    @dataclasses.dataclass
+    class SubTest:
+        value: str
+
+    @dataclasses.dataclass
+    class Test:
+        value: typing.List[typing.Optional[SubTest]]
+
+    serializer = serpyco.Serializer(Test)
+    assert serializer.dump(Test([None])) == {"value": [None]}
