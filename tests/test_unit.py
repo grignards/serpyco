@@ -1684,3 +1684,26 @@ def test_unit_optional_dataclass_list__ok__nominal_case():
 
     serializer = serpyco.Serializer(Test)
     assert serializer.dump(Test([None])) == {"value": [None]}
+
+
+def test_unit_union_with_none__ok__nominal_case():
+    @dataclasses.dataclass
+    class SubTest1:
+        value1: str
+
+    @dataclasses.dataclass
+    class SubTest2:
+        value2: str
+
+    @dataclasses.dataclass
+    class Test:
+        value: typing.List[typing.Optional[typing.Union[SubTest1, SubTest2]]]
+
+    serializer = serpyco.Serializer(Test)
+    assert serializer.dump(Test(value=[None, SubTest1("1"), SubTest2("2")])) == {
+        "value": [
+            None,
+            {"value1": "1"},
+            {"value2": "2"},
+        ]
+    }

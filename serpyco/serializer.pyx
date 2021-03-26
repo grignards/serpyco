@@ -804,12 +804,20 @@ cdef class IterableFieldEncoder(FieldEncoder):
 
     cpdef inline load(self, value: typing.Any):
         if self._item_encoder:
-            value = [self._item_encoder.load(v) for v in value]
+            value = [
+                self._item_encoder.load(v) if v is not None
+                else None
+                for v in value
+            ]
         return self._iterable_type(value)
 
     cpdef inline dump(self, value: typing.Any):
         if self._item_encoder:
-            return [self._item_encoder.dump(v) for v in value]
+            return [
+                self._item_encoder.dump(v) if v is not None
+                else None
+                for v in value
+            ]
         return list(value)
 
     def json_schema(self) -> JsonDict:
@@ -924,7 +932,7 @@ cdef class UnionFieldEncoder(FieldEncoder):
     cpdef inline dump(self, value):
         cdef list value_types = []
         for value_type, encoder in self._type_encoders:
-            value_types.append(value_type)
+            value_types.append(str(value_type))
             try:
                 return encoder.dump(value) if encoder else value
             except Exception:
@@ -937,11 +945,11 @@ cdef class UnionFieldEncoder(FieldEncoder):
         cdef list value_types = []
         for value_type, encoder in self._type_encoders:
             try:
-                value_types.append(value_type)
+                value_types.append(str(value_type))
                 return encoder.load(value) if encoder else value
             except Exception:
                 pass
-        union = ",".join([str(v) for v in value_types])
+        union = ",".join(value_types)
         msg = f"{value} has a wrong type, expected any of [{union}]"
         raise ValidationError(msg)
 
