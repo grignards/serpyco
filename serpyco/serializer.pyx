@@ -29,6 +29,8 @@ from serpyco.util import (
     JSON_ENCODABLE_TYPES,
     JsonDict,
     JsonEncodable,
+    UNTYPED_DICT_TYPES,
+    UNTYPED_ITERABLE_TYPES,
     _DataClassParams,
     _is_generic,
     _is_union,
@@ -631,6 +633,8 @@ cdef class Serializer(object):
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
+        elif field_type in UNTYPED_DICT_TYPES:
+            return DictFieldEncoder(None, None)
         elif (
             _is_generic(field_type, typing.Tuple)
             and (
@@ -651,7 +655,8 @@ cdef class Serializer(object):
                 dencoder = item_encoder
                 return DataClassIterableFieldEncoder(dencoder._serializer, field_type)
             return IterableFieldEncoder(item_encoder, field_type)
-
+        elif field_type in UNTYPED_ITERABLE_TYPES:
+            return IterableFieldEncoder(None, field_type)
         # Is the field a dataclass ?
         try:
             params = _DataClassParams(field_type)

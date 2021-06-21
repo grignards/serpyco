@@ -25,6 +25,10 @@ TypeOrTypes = typing.Union[
 
 FieldValidator = typing.Callable[[typing.Any], None]
 
+UNTYPED_DICT_TYPES = (dict, typing.Dict)
+
+UNTYPED_ITERABLE_TYPES = (list, typing.List, set, typing.Set)
+
 
 def _issubclass_safe(field_type: type, types: TypeOrTypes) -> bool:
     try:

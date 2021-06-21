@@ -1707,3 +1707,48 @@ def test_unit_union_with_none__ok__nominal_case():
             {"value2": "2"},
         ]
     }
+
+
+def test_unit_untyped_collections__ok__nominal_case():
+    @dataclasses.dataclass
+    class Untyped:
+        """Untyped collection fields"""
+
+        udict: dict
+        tdict: typing.Dict
+        ulist: list
+        tlist: typing.List
+        uset: set
+        tset: typing.Set
+
+    serializer = serpyco.Serializer(Untyped)
+    assert serializer.dump(
+        Untyped(
+            udict={}, tdict={"foo": 1}, ulist=[], tlist=[0, 2], uset=set(), tset={0, 12}
+        )
+    ) == {
+        "udict": {},
+        "tdict": {"foo": 1},
+        "ulist": [],
+        "tlist": [0, 2],
+        "uset": [],
+        "tset": [0, 12],
+    }
+
+    assert serializer.json_schema() == {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "additionalProperties": True,
+        "comment": "test_unit.Untyped",
+        "definitions": {},
+        "description": "Untyped collection fields",
+        "properties": {
+            "tdict": {"additionalProperties": {}, "type": "object"},
+            "tlist": {"additionalProperties": {}, "type": "array"},
+            "tset": {"additionalProperties": {}, "type": "array"},
+            "udict": {"additionalProperties": {}, "type": "object"},
+            "ulist": {"additionalProperties": {}, "type": "array"},
+            "uset": {"additionalProperties": {}, "type": "array"},
+        },
+        "required": ["udict", "tdict", "ulist", "tlist", "uset", "tset"],
+        "type": "object",
+    }

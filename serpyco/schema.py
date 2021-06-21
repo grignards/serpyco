@@ -12,6 +12,8 @@ from serpyco.util import (
     JSON_ENCODABLE_TYPES,
     FieldValidator,
     JsonDict,
+    UNTYPED_DICT_TYPES,
+    UNTYPED_ITERABLE_TYPES,
     _DataClassParams,
     _get_qualified_type_name,
     _is_generic,
@@ -383,6 +385,11 @@ class SchemaBuilder(object):
                 args[1], parent_builders, vfield, self_is_many
             )[0]
             field_schema["additionalProperties"] = add
+        elif field_type in UNTYPED_DICT_TYPES:
+            field_schema = {"type": "object"}
+            field_schema["additionalProperties"] = self._get_field_schema(
+                typing.Any, parent_builders, vfield, self_is_many
+            )[0]
         elif _is_generic(field_type, tuple) and (
             len(args) != 2 or args[len(args) - 1] is not ...
         ):
@@ -399,11 +406,15 @@ class SchemaBuilder(object):
                 "maxItems": arg_len,
                 "items": items,
             }
-
         elif _is_generic(field_type, typing.Iterable):
             field_schema = {"type": "array"}
             field_schema["items"] = self._get_field_schema(
                 args[0], parent_builders, vfield, self_is_many
+            )[0]
+        elif field_type in UNTYPED_ITERABLE_TYPES:
+            field_schema = {"type": "array"}
+            field_schema["additionalProperties"] = self._get_field_schema(
+                typing.Any, parent_builders, vfield, self_is_many
             )[0]
         elif hasattr(field_type, "__supertype__"):  # NewType fields
             field_schema, _ = self._get_field_schema(
