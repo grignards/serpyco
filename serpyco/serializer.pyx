@@ -27,10 +27,10 @@ from serpyco.field import FieldHints, _metadata_name
 from serpyco.schema import SchemaBuilder
 from serpyco.util import (
     JSON_ENCODABLE_TYPES,
-    JsonDict,
-    JsonEncodable,
     UNTYPED_DICT_TYPES,
     UNTYPED_ITERABLE_TYPES,
+    JsonDict,
+    JsonEncodable,
     _DataClassParams,
     _is_generic,
     _is_union,

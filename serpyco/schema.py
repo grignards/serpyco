@@ -10,10 +10,10 @@ from serpyco.exception import NotADataClassError, SchemaError
 from serpyco.field import FieldHints, _metadata_name
 from serpyco.util import (
     JSON_ENCODABLE_TYPES,
-    FieldValidator,
-    JsonDict,
     UNTYPED_DICT_TYPES,
     UNTYPED_ITERABLE_TYPES,
+    FieldValidator,
+    JsonDict,
     _DataClassParams,
     _get_qualified_type_name,
     _is_generic,
