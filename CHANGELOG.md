@@ -1,5 +1,10 @@
 # Serpyco changelog
 
+## v1.3.5
+
+- feat: add support for non-annotated collections (`dict`/`list`/`set`) (#44)
+- fix: properly support `typing.Union[None, Dataclass1, Dataclass2]` (#42)
+
 ## v1.3.4
 
 - fix: get_dict_path() with dataclass dicts
