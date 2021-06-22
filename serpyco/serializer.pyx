@@ -627,14 +627,14 @@ cdef class Serializer(object):
                 return type_encoders[0][1]
             else:
                 return UnionFieldEncoder(type_encoders)
+        elif field_type in UNTYPED_DICT_TYPES:
+            return None
         elif _is_generic(field_type, typing.Mapping):
             key_encoder = self._get_encoder(args[0], hints)
             value_encoder = self._get_encoder(args[1], hints)
             if key_encoder or value_encoder:
                 return DictFieldEncoder(key_encoder, value_encoder)
             return None
-        elif field_type in UNTYPED_DICT_TYPES:
-            return DictFieldEncoder(None, None)
         elif (
             _is_generic(field_type, typing.Tuple)
             and (
@@ -648,15 +648,15 @@ cdef class Serializer(object):
                 for arg_type in args
             ]
             return FixedTupleFieldEncoder(item_encoders)
-            # tuples defined with ... are handled by the following elif
+        elif field_type in UNTYPED_ITERABLE_TYPES:
+            return IterableFieldEncoder(None, field_type)
+        # tuples defined with ... are handled by the following elif
         elif _is_generic(field_type, typing.Iterable):
             item_encoder = self._get_encoder(args[0], hints)
             if isinstance(item_encoder, DataClassFieldEncoder):
                 dencoder = item_encoder
                 return DataClassIterableFieldEncoder(dencoder._serializer, field_type)
             return IterableFieldEncoder(item_encoder, field_type)
-        elif field_type in UNTYPED_ITERABLE_TYPES:
-            return IterableFieldEncoder(None, field_type)
         # Is the field a dataclass ?
         try:
             params = _DataClassParams(field_type)
