@@ -302,6 +302,53 @@ You can register your own field encoders for any type:
     serializer.load({"rational": (1, 2.1)})
     ValidationError: ('data["rational"][1]: has type float, expected integer.')
 
+`type_encoders` also makes it possible to customize encoding of types that serpyco handles natively, for example to serialize `Enum` using their name instead of their value:
+
+.. code-block:: python
+    import dataclasses
+    import enum
+    import typing
+
+    import serpyco
+
+    class EnumNameEncoder(serpyco.FieldEncoder):
+
+        def __init__(self, enum_type: typing.Type[enum.Enum]) -> None:
+            self._enum_type = enum_type
+
+        def dump(self, value: enum.Enum) -> str:
+            return value.name
+
+        def load(self, value: str) -> enum.Enum:
+            try:
+                return next(e for e in self._enum_type if e.name == value)
+            except StopIteration:
+                raise serpyco.ValidationError(f"No member with name='{value}' in {self._enum_type.__name__}")
+
+        def json_schema(self) -> dict:
+            return {
+                "type": "string",
+                "enum": [e.name for e in self._enum_type]
+            }
+
+    class DictEnum(enum.Enum):
+        FOO = {"name": "foo's name", "data": True}
+        BAR = {"name": "bars's name", "data": False}
+
+
+    @dataclasses.dataclass
+    class Foobar:
+        hello: DictEnum
+
+    serializer = serpyco.Serializer(Foobar, type_encoders={DictEnum: EnumNameEncoder(DictEnum)})
+    print(serializer.dump(Foobar(DictEnum.FOO), validate=True))
+    print(serializer.load({"hello": "FOO"}, validate=True))
+    try:
+        serializer.load({"hello": "SPAM"}, validate=True)
+    except serpyco.ValidationError as e:
+        print(f"Error while loading: {e}")
+
+
 Pre-processing and post-processing methods
 ==========================================
 
