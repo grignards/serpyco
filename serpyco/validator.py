@@ -83,10 +83,23 @@ class ValidatorSchema:
     validator: rapidjson.Validator
 
 
+class RapidJsonEncoder(rapidjson.Encoder):
+    """
+    Do not allow bytes in input.
+    """
+
+    def default(self, obj: typing.Any) -> typing.Any:
+        if isinstance(obj, bytes):
+            raise ValidationError("bytes cannot be used as string")
+        return obj
+
+
 class RapidJsonValidator(AbstractValidator):
     """
     Schema validator using rapidjson.
     """
+
+    _encoder = RapidJsonEncoder(bytes_mode=rapidjson.BM_NONE)
 
     def __init__(self, schema_builder: SchemaBuilder) -> None:
         super().__init__(schema_builder)
@@ -172,7 +185,7 @@ class RapidJsonValidator(AbstractValidator):
     def validate(
         self, data: typing.Union[JsonDict, typing.List[JsonDict]], many: bool = False
     ) -> None:
-        self.validate_json(rapidjson.dumps(data), many=many)
+        self.validate_json(self._encoder(data), many=many)
 
     @staticmethod
     def _get_value(components: typing.List[str], d: JsonDict) -> JsonDict:

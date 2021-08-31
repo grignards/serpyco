@@ -1752,3 +1752,22 @@ def test_unit_untyped_collections__ok__nominal_case():
         "required": ["udict", "tdict", "ulist", "tlist", "uset", "tset"],
         "type": "object",
     }
+
+
+def test_unit_bytes_as_field__err__nominal_case():
+    @dataclasses.dataclass
+    class WithBytes:
+        wrong: bytes
+
+    with pytest.raises(serpyco.NoEncoderError):
+        serpyco.Serializer(WithBytes)
+
+
+def test_unit_bytes_input__err__nominal_case():
+    @dataclasses.dataclass
+    class Foo:
+        wrong: str
+
+    serializer = serpyco.Serializer(Foo)
+    with pytest.raises(serpyco.ValidationError):
+        serializer.load({"wrong": b"abc"}, validate=True)

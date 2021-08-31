@@ -1,5 +1,9 @@
 # Serpyco changelog
 
+## v1.3.6
+
+- fix: raise a ValidationError if bytes are used as input (#49)
+
 ## v1.3.5
 
 - feat: add support for non-annotated collections (`dict`/`list`/`set`) (#44)
