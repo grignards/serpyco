@@ -66,7 +66,7 @@ def field(
     Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
     :param dict_key: key of the field in the dumped dictionary.
-    :param ignore: if True, the field won't be considered by serpico.
+    :param ignore: if True, the field won't be considered by Serpyco.
     :param getter: callable used to get values of this field when dumping.
         Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
@@ -131,27 +131,27 @@ def string_field(
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
     Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
-    :param dict_key: key of the field in the dumped dictionary
-    :param ignore: if True, this field won't be considered by serpico
+    :param dict_key: key of the field in the dumped dictionary.
+    :param ignore: if True, this field won't be considered by Serpyco.
     :param getter: callable used to get values of this field when dumping.
-        Must take one object argument
+        Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
         if the value is not valid.
     :param cast_on_load: when true, dict values for this field are constructed
         from the field's type.
     :param description: a description for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     :param examples: a list of example usages for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     :param format_: additional semantic validation for strings.
         Currently only used to better document the JSON schema, if you need
         special validation for a string, use a validator callable.
 
     :param pattern: restricts the strings of this field to the
-        given regular expression
-    :param min_length: minimum string length
-    :param max_length: maximum string length
+        given regular expression.
+    :param min_length: minimum string length.
+    :param max_length: maximum string length.
     """
     return field(
         dict_key,
@@ -189,21 +189,21 @@ def number_field(
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
     Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
-    :param dict_key: key of the field in the dumped dictionary
-    :param ignore: if True, this field won't be considered by serpico
+    :param dict_key: key of the field in the dumped dictionary.
+    :param ignore: if True, this field won't be considered by Serpyco.
     :param getter: callable used to get values of this field when dumping.
-        Must take one object argument
+        Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
         if the value is not valid.
     :param cast_on_load: when true, dict values for this field are constructed
         from the field's type.
     :param description: a description for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     :param examples: a list of example usages for the field. Will be included
-        in the generated JSON schema
-    :param minimum: minimum allowed value (inclusive)
-    :param maximum: maximum allowed value (inclusive)
+        in the generated JSON schema.
+    :param minimum: minimum allowed value (inclusive).
+    :param maximum: maximum allowed value (inclusive).
     """
     return field(
         dict_key,
@@ -238,19 +238,19 @@ def nested_field(
     Call it at field declaration as you would do with :func:`dataclasses.field()`.
     Additional parameters will be passed verbatim to :func:`dataclasses.field()`.
 
-    :param only: if present, only fields in this list will be serialized
-    :param exclude: if present, fields in this list will not be serialized
-    :param dict_key: key of the field in the dumped dictionary
-    :param ignore: if True, the field won't be considered by serpico
+    :param only: if present, only fields in this list will be serialized.
+    :param exclude: if present, fields in this list will not be serialized.
+    :param dict_key: key of the field in the dumped dictionary.
+    :param ignore: if True, the field won't be considered by Serpyco.
     :param getter: callable used to get values of this field.
-        Must take one object argument
+        Must take one object argument.
     :param validator: callable used to perform custom validation of this field.
         Will be called with values of the field, shall raise ValidationError()
         if the value is not valid.
     :param description: a description for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     :param examples: a list of example usages for the field. Will be included
-        in the generated JSON schema
+        in the generated JSON schema.
     """
     return field(
         dict_key,
