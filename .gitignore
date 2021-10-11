@@ -9,3 +9,5 @@ _build/
 .mypy_cache/
 .vscode/
 .pytest_cache/
+.python-version
+*~

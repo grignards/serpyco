@@ -83,7 +83,7 @@ class ValidatorSchema:
     validator: rapidjson.Validator
 
 
-class RapidJsonEncoder(rapidjson.Encoder):
+class RapidJsonEncoder(rapidjson.Encoder):  # type: ignore
     """
     Do not allow bytes in input.
     """
